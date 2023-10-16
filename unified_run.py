@@ -3,6 +3,8 @@ import time
 import subprocess
 from glob import glob
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "13"
+
 models = {
     'ckpt/unixgen.ckpt'
     : [

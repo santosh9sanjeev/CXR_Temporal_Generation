@@ -698,7 +698,8 @@ class TransformerLM_unified(nn.Module):
 
         B, n_txt, device = *txt.shape, txt.device
 
-        att_sos_special_tokens = {'AP': 1025, 'PA': 1027, 'LATERAL': 1029, 'LL': 1029, 'PAD': 1024}
+        # att_sos_special_tokens = {'AP': 1025, 'PA': 1027, 'LATERAL': 1029, 'LL': 1029, 'PAD': 1024}
+        att_sos_special_tokens = {'AP_and_curr': 1025, 'AP_and_prev': 1027, 'PAD': 1024}#, 'LATERAL': 1029, 'LL': 1029,
 
         if self.max_img_num == 1:
             out = txt

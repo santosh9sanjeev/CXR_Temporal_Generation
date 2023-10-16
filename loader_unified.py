@@ -12,8 +12,33 @@ import torch
 from torch.utils.data import Dataset
 
 from vae import VQGanVAE
+from datetime import datetime
 
 random.seed(42)
+
+def datatime_conversion(studydate,studytime):
+    studytime = str(studytime)
+    studytime = studytime.split('.')[0]
+    studytime_str = str(int(studytime)).zfill(6)
+    studytime_str = studytime_str[:2] + ':' + studytime_str[2:4] + ':' + studytime_str[4:]
+    studydatetime_str = str(studydate) + ' ' + studytime_str
+    # print(studydatetime_str)
+    studydatetime = datetime.strptime(studydatetime_str, '%Y%m%d %H:%M:%S')
+
+    return studydatetime
+
+def difference(prevtimestamp, currtimestamp):
+    difference = currtimestamp - prevtimestamp
+    years = difference.days // 365
+    remaining_days = difference.days % 365
+    months = remaining_days // 30
+    remaining_days = remaining_days % 30
+    days = remaining_days
+    hours = difference.seconds // 3600
+
+    sentence = f'\nThe previous scan was taken {years} years, {months} months, {days} days, {hours} hours back.'
+    return sentence
+
 
 class UnifiedCXRDataset(Dataset):
 
@@ -195,12 +220,29 @@ class UnifiedCXRDataset(Dataset):
         for i in range(num_img_in_subject):
             idx, dicom_id, subject_id, studyid, ViewPosition_text, StudyDate, StudyTime, count, curr_state = imgs_meta[i]#[:4]
             if curr_state == '0':#  and num_img_in_subject == 2:
+                prev_StudyDate = StudyDate
+                prev_StudyTime = StudyTime
+                prevstudy_timestamp = datatime_conversion(prev_StudyDate, prev_StudyTime)
+                # print('prevvvvvvvvvvvvvvv',prevstudy_timestamp)
                 continue
             else:
+
                 # print('in elseeeee', curr_state, num_img_in_subject)
                 text_path = os.path.join(self.text_root_dir, studyid + '.txt')
                 with open(text_path, 'r') as f:
                     data = f.read()
+                if int(count) == 2:
+                    curr_StudyDate = StudyDate
+                    curr_StudyTime = StudyTime
+                    currstudy_timestamp = datatime_conversion(curr_StudyDate, curr_StudyTime)
+                    # print('currrrrrr',currstudy_timestamp)
+
+                    timediff = difference(prevstudy_timestamp, currstudy_timestamp)
+                    # print('sentenceeeeeeeeeeeeeeeeeee',prevstudy_timestamp, currstudy_timestamp, timediff)
+                    data += timediff
+                else:
+                    data+= "\nThere is no previous scan available."
+                # print(data)
                 src = data.replace('  ', ' ').replace('  ', ' ').lower()
                 ids_list = self.tokenizer.encode(src).ids
                 # text_output = self.tokenizer.encode(src, add_special_tokens=True, padding='max_length', max_length = 256, truncation = True, return_tensors='pt')
