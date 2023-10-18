@@ -39,8 +39,9 @@ class TransformerLightning_unified(pl.LightningModule):
         self.pad_token_idx = pad_token_idx
         self.sos_token_idx = sos_token_idx
         self.eos_token_idx = eos_token_idx
-        self.save_dir = save_dir
+        self.save_dir = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-1' #save_dir 
         self.causal = causal_trans
+        self.subs = []
 
         self.save_hyperparameters(ignore=['tokenizer'])
 
@@ -267,6 +268,7 @@ class TransformerLightning_unified(pl.LightningModule):
             )
 
         output = {
+            'subject_ids':subject_ids,
             'GT_text': txt,
             'gen_text': gen_texts,
             'GT_image1': img1,
@@ -275,6 +277,7 @@ class TransformerLightning_unified(pl.LightningModule):
             'modes_txt': modes_txt,
             'modes_img1': modes_img1,
             'view': view,
+            'img_state': img_state,
         }
 
         if 'img2' in batch.keys():
