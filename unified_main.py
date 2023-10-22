@@ -18,9 +18,10 @@ from helpers import str2bool
 from datamodule import CXRDataModule
 from loader_unified import UnifiedCXRDataset
 from unified_plmodel import TransformerLightning_unified
-
-# os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4,14,15"
-os.environ["CUDA_VISIBLE_DEVICES"] = "10"
+import warnings
+warnings.filterwarnings("ignore")
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4,14,15"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "13"
 
 if __name__ == '__main__':
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -31,6 +32,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--test', default=False, help='trian (False) or test (True)')
     parser.add_argument('--reload_ckpt_dir', default=None, type=str, help='ckpt_dir')
+    parser.add_argument('--save_dir', default=None, type=str, help='save_dir')
 
     parser.add_argument('--n_gpus', default=1, type=int)
     parser.add_argument('--n_epochs', default=200, type=int)
@@ -40,15 +42,15 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', default=1e-6, type=float, help='weight decay')
 
     parser.add_argument('--img_root_dir', default='/nfs/users/ext_ibrahim.almakky/datasets/physionet.org/files/mimic-cxr-jpg/', type=str)
-    # parser.add_argument('--text_root_dir', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/mimic-cxr-reports-v4', type=str)#/nfs/users/ext_ibrahim.almakky/datasets/physionet.org/files/mimic-cxr-jpg/mimic-cxr-reports-v2/
-    # parser.add_argument('--train_meta_file', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v3/train_main_file_v2.csv', type=str)
-    # parser.add_argument('--val_meta_file', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v3/validate_main_file_v2.csv', type=str)
-    # parser.add_argument('--test_meta_file', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v3/test_main_file_v2.csv', type=str)
+    parser.add_argument('--text_root_dir', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/mimic-cxr-reports-v4', type=str)#/nfs/users/ext_ibrahim.almakky/datasets/physionet.org/files/mimic-cxr-jpg/mimic-cxr-reports-v2/
+    parser.add_argument('--train_meta_file', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v3/train_main_file_v2.csv', type=str)
+    parser.add_argument('--val_meta_file', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v3/validate_main_file_v2.csv', type=str)
+    parser.add_argument('--test_meta_file', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v3/test_main_file_v2.csv', type=str)
 
-    parser.add_argument('--text_root_dir', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/mimic-cxr-reports-v3', type=str)#/nfs/users/ext_ibrahim.almakky/datasets/physionet.org/files/mimic-cxr-jpg/mimic-cxr-reports-v2/
-    parser.add_argument('--train_meta_file', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v2/train_main_file.csv', type=str)
-    parser.add_argument('--val_meta_file', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v2/validate_main_file.csv', type=str)
-    parser.add_argument('--test_meta_file', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v2/test_main_file_smaller_version.csv', type=str)
+    # parser.add_argument('--text_root_dir', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/mimic-cxr-reports-v3', type=str)#/nfs/users/ext_ibrahim.almakky/datasets/physionet.org/files/mimic-cxr-jpg/mimic-cxr-reports-v2/
+    # parser.add_argument('--train_meta_file', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v2/train_main_file.csv', type=str)
+    # parser.add_argument('--val_meta_file', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v2/validate_main_file.csv', type=str)
+    # parser.add_argument('--test_meta_file', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v2/test_main_file_smaller_version.csv', type=str)
 
     parser.add_argument('--vocab_file', default='BBPE_tokenizer/vocab.json', type=str)
     parser.add_argument('--merge_file', default='BBPE_tokenizer/merges.txt', type=str)
@@ -105,6 +107,11 @@ if __name__ == '__main__':
     parser.add_argument('--fp16', default=False, type=str2bool, help='FP16')
     parser.add_argument('--sharded_ddp', default=False, type=str2bool, help='fairscale sharded ddp')
 
+    parser.add_argument('--train_label_file', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v3/train_labels_file_v2.csv', type=str)
+    parser.add_argument('--validate_label_file', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v3/validate_labels_file_v2.csv', type=str)
+    parser.add_argument('--test_label_file', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v3/test_labels_file_v2.csv', type=str)
+    parser.add_argument('--weights', default=True, type=str2bool, help='weights be given or not')
+
     args = parser.parse_args()
 
     start = datetime.datetime.now()
@@ -140,9 +147,9 @@ if __name__ == '__main__':
         under_sample=args.under_sample,
     )
 
-    train_ds = dsclass(args.train_meta_file)
-    val_ds = dsclass(args.val_meta_file)
-    test_ds = dsclass(args.test_meta_file)
+    train_ds = dsclass(args.train_meta_file,label_file = args.train_label_file)
+    val_ds = dsclass(args.val_meta_file,label_file = args.validate_label_file)
+    test_ds = dsclass(args.test_meta_file,label_file = args.test_label_file)
 
     dm = CXRDataModule(
         train_ds, val_ds, test_ds,
@@ -205,7 +212,8 @@ if __name__ == '__main__':
         'epochs': args.n_epochs,
         'ckpt_dir': args.reload_ckpt_dir,
         'under_sample': args.under_sample,
-        'target_count': args.target_count
+        'target_count': args.target_count,
+        'weights':args.weights
     }
 
     LOCAL_RANK = int(os.environ.get("LOCAL_RANK", 0))
@@ -219,7 +227,7 @@ if __name__ == '__main__':
         sos_token_idx=tokenizer.token_to_id("[SOS]"),
         eos_token_idx=tokenizer.token_to_id("[EOS]"),
         # save_dir='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-2',
-        save_dir='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-1',
+        save_dir=args.save_dir,
 
         causal_trans=args.causal_clm,
         **kargs_unified,
@@ -227,7 +235,7 @@ if __name__ == '__main__':
 
     checkpoint_callback = ModelCheckpoint(
         # dirpath='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-2',
-        dirpath='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-1',
+        dirpath=args.save_dir,
         filename='{epoch:02d}-{train_loss: .2f}',
         verbose=True,
         save_last=True,

@@ -6,6 +6,9 @@ from transformer_pytorch.model_utils import *
 from axial_positional_embedding import AxialPositionalEmbedding
 from transformer_pytorch.FAVOR_unified import FAVORAttention, ProjectionUpdater
 
+# ADAM
+from einops import rearrange, repeat
+
 def eval_decorator(fn):
     def inner(model, *args, **kwargs):
         was_training = model.training
@@ -197,6 +200,8 @@ class TransformerLM_unified(nn.Module):
         if rotary_position_emb:
             self.pos_emb = FixedPositionalEmbedding(dim, max_seq_len)
             self.layer_pos_emb = FixedPositionalEmbedding(dim_head, max_seq_len)
+            # ADAM
+            self.layer_pos_emb = FixedPositionalEmbedding(dim_head, max_seq_len + 1)
         elif axial_position_emb:
             axial_position_shape = default(axial_position_shape, (math.ceil(max_seq_len / 64), 64))
             self.pos_emb = AxialPositionalEmbedding(dim, axial_position_shape)
@@ -218,6 +223,10 @@ class TransformerLM_unified(nn.Module):
         self.to_out_txt = nn.Linear(dim, num_tokens)  # if not tie_embed else None
         self.to_out_img = nn.Linear(dim, num_img_tokens)  # if not tie_embed else None
         self.to_out_combined_txt_img = nn.Linear(dim, (num_tokens + num_img_tokens))
+        
+        # ADAM
+        self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
+        self.mlp_head = nn.Linear(dim, 11)
 
     def check_redraw_projections(self):
         self.performer.check_redraw_projections()
@@ -560,6 +569,10 @@ class TransformerLM_unified(nn.Module):
             x = torch.cat(x, dim=0)
 
         assert x.size(0) == b
+        
+        # ADAM
+        cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b = b)
+        x = torch.cat((x, cls_tokens), dim=1)
 
         x = self.dropout(x)
 
@@ -567,13 +580,19 @@ class TransformerLM_unified(nn.Module):
         layer_pos_emb = self.layer_pos_emb(x)
         x = self.transformer(x, pos_emb=layer_pos_emb, causal=causal, condition_len=n_condition, **kwargs)  # x: [B, seq_len, dim] -> [B, seq_len, dim]
         x = self.norm(x)
+        
+        # ADAM
+        cls_logits = self.mlp_head(x[:,-1])
+        x = x[:,:-1] # remove the cls token
 
         if return_encodings:  # usually False
             return x
 
         if self.attn_type in ['all_modality_causal_noncuda', 'all_modality_causal_cuda']:
-            return self.to_out_combined_txt_img(x)
-        return x @ self.token_emb.weight.t()
+            # return self.to_out_combined_txt_img(x)
+            # ADAM
+            return self.to_out_combined_txt_img(x), cls_logits
+        # return x @ self.token_emb.weight.t()
 
     # !# Generate Report
     @torch.no_grad()
@@ -699,7 +718,7 @@ class TransformerLM_unified(nn.Module):
         B, n_txt, device = *txt.shape, txt.device
 
         # att_sos_special_tokens = {'AP': 1025, 'PA': 1027, 'LATERAL': 1029, 'LL': 1029, 'PAD': 1024}
-        att_sos_special_tokens = {'AP_and_curr': 1025, 'AP_and_prev': 1029, 'PAD': 1024}#, 'LATERAL': 1029, 'LL': 1029,
+        att_sos_special_tokens = {'AP_and_curr': 1025, 'AP_and_prev': 1027, 'PAD': 1024}#, 'LATERAL': 1029, 'LL': 1029,
 
         if self.max_img_num == 1:
             out = txt

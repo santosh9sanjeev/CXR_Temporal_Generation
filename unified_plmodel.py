@@ -17,6 +17,8 @@ from transformers.optimization import get_cosine_schedule_with_warmup
 
 random.seed(42)
 
+
+
 class TransformerLightning_unified(pl.LightningModule):
     def __init__(self, lr=5e-4, weight_decay=0.01,
                  pad_token_idx=0, sos_token_idx=1, eos_token_idx=2,
@@ -28,6 +30,7 @@ class TransformerLightning_unified(pl.LightningModule):
         self.attn_type = kargs['attn_type']
         self.num_txt_tokens = kargs['num_tokens']
         self.num_img_tokens = kargs['num_img_tokens']
+        self.taskweights = kargs['weights']
 
         self.ckpt_path = None
         self.target_count = None
@@ -44,14 +47,21 @@ class TransformerLightning_unified(pl.LightningModule):
         self.subs = []
 
         self.save_hyperparameters(ignore=['tokenizer'])
+        
+        # ADAM
+        self.cls_criterion = torch.nn.BCEWithLogitsLoss()
+    
 
     def forward(self, batch):
-        logit = self.transformerLM_unified(batch, causal=self.causal)
-        return logit
+        # logit = self.transformerLM_unified(batch, causal=self.causal)
+        # return logit
+        # Adam
+        logit, cls_logit = self.transformerLM_unified(batch, causal=self.causal)
+        return logit, cls_logit
 
     def training_step(self, batch, batch_idx):
-        img1, txt, modes, view, img_state = batch['img1'], batch['txt'], batch['modes'], batch['view_position'], batch['image_state']
-
+        img1, txt, modes, view, img_state, cls_targets, weights = batch['img1'], batch['txt'], batch['modes'], batch['view_position'], batch['image_state'], batch['labels'],batch['weights']
+        # print(cls_targets, weights)
         assert txt.shape[0] == img1.shape[0]
         batch_size = txt.shape[0]
         txt_seq_len = txt.shape[1]
@@ -64,7 +74,10 @@ class TransformerLightning_unified(pl.LightningModule):
             img3 = batch['img3']
             n += img3.shape[1]
 
-        logit = self(batch)[:, :-1, :]
+        # logit = self(batch)[:, :-1, :]
+        # ADAM
+        logit, cls_logit = self(batch)
+        logit = logit[:, :-1, :]
         max_neg_value = -torch.finfo(logit.dtype).max
 
         for bsz in range(batch_size):
@@ -103,18 +116,40 @@ class TransformerLightning_unified(pl.LightningModule):
 
         ignore_classes = torch.ones(self.num_txt_tokens + self.num_img_tokens)
         ignore_classes[1024 + self.num_txt_tokens] = 0.
-        loss = cross_entropy(logit, target, ignore_index=self.pad_token_idx, weight=ignore_classes.to(logit.device))
+        gen_loss = cross_entropy(logit, target, ignore_index=self.pad_token_idx, weight=ignore_classes.to(logit.device))
+        weights = (weights).to('cuda').float()
+        # print('logitttttttttt', cls_logit)
+
+        # ADAM
+        cls_loss = torch.zeros(1).to('cuda').float()
+        for task in range(cls_targets.shape[1]):
+            task_output = cls_logit[:,task]
+            task_target = cls_targets[:,task]
+            mask = ~torch.isnan(task_target)
+            task_output = task_output[mask]
+            task_target = task_target[mask]
+            if len(task_target) > 0:
+                task_loss = self.cls_criterion(task_output.float(), task_target.float())
+                if self.taskweights:
+                    cls_loss += weights[0][task]*task_loss
+                else:
+                    cls_loss += task_loss
+        loss = gen_loss + cls_loss
+        # print(loss,task_loss, loss-task_loss)
 
         self.log('train_loss', loss, on_step=True, on_epoch=True, sync_dist=True)
+        self.log('train_gen_loss', gen_loss, on_step=True, on_epoch=True, sync_dist=True)
+        self.log('train_cls_loss', cls_loss, on_step=True, on_epoch=True, sync_dist=True)
 
         output = {
             'batch_idx': batch_idx,
             'loss': loss
         }
         return output
-    def validation_step(self, batch, batch_idx):
-        img1, txt, modes, view, img_state = batch['img1'], batch['txt'], batch['modes'], batch['view_position'], batch['image_state']
 
+    def validation_step(self, batch, batch_idx):
+        img1, txt, modes, view, img_state, cls_targets, weights = batch['img1'], batch['txt'], batch['modes'], batch['view_position'], batch['image_state'], batch['labels'],batch['weights']
+        # print(cls_targets, weights)
         assert txt.shape[0] == img1.shape[0]
         batch_size = txt.shape[0]
         txt_seq_len = txt.shape[1]
@@ -126,10 +161,11 @@ class TransformerLightning_unified(pl.LightningModule):
         if 'img3' in batch.keys():
             img3 = batch['img3']
             n += img3.shape[1]
-
-        logit = self(batch)[:, :-1, :]
+        # logit = self(batch)[:, :-1, :]
+        # ADAM
+        logit, cls_logit = self(batch)
+        logit = logit[:, :-1, :]
         max_neg_value = -torch.finfo(logit.dtype).max
-
         for bsz in range(batch_size):
             if np.array(modes)[:, bsz][0] == 'txt':
                 first_modal = txt_seq_len - 1
@@ -167,8 +203,30 @@ class TransformerLightning_unified(pl.LightningModule):
         ignore_classes = torch.ones(self.num_txt_tokens + self.num_img_tokens)
         ignore_classes[1024 + self.num_txt_tokens] = 0.
         loss = cross_entropy(logit, target, ignore_index=self.pad_token_idx, weight=ignore_classes.to(logit.device))
+        gen_loss = cross_entropy(logit, target, ignore_index=self.pad_token_idx, weight=ignore_classes.to(logit.device))
+        weights = (weights).to('cuda').float()
+        # print('weightsss',weights)
+
+        # ADAM
+        cls_loss = torch.zeros(1).to('cuda').float()
+        for task in range(cls_targets.shape[1]):
+            task_output = cls_logit[:,task]
+            task_target = cls_targets[:,task]
+            mask = ~torch.isnan(task_target)
+            task_output = task_output[mask]
+            task_target = task_target[mask]
+            if len(task_target) > 0:
+                task_loss = self.cls_criterion(task_output.float(), task_target.float())
+                if self.taskweights:
+                    cls_loss += weights[0][task]*task_loss
+                else:
+                    cls_loss += task_loss
+        loss = gen_loss + cls_loss
+        # print(loss,task_loss, loss-task_loss)
         
         self.log('val_loss', loss, on_step=False, on_epoch=True, sync_dist=True)
+        self.log('val_gen_loss', gen_loss, on_step=True, on_epoch=True, sync_dist=True)
+        self.log('val_cls_loss', cls_loss, on_step=True, on_epoch=True, sync_dist=True)
 
         # output = {
         #     'batch_size': batch_size,
