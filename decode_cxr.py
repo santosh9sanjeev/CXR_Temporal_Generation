@@ -9,17 +9,18 @@ import torch
 from vae import VQGanVAE
 from helpers import str2bool
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "10"
+os.environ["CUDA_VISIBLE_DEVICES"] = "12"
 
 
 models = {
-    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-1'
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-4/'
 }
 
 for infer_path in models:
-    output_path = [glob(os.path.join(infer_path, 'test_output_*.pt'))[-1]]
+    output_path = glob(os.path.join(infer_path, 'test_output_*.pt'))
     print(output_path)
     for output_pt_file in output_path:
+        print('pt_file',output_pt_file)
         parser = argparse.ArgumentParser()
         parser.add_argument('--img_save', default=True, type=str2bool, help='')
         parser.add_argument('--save_dir', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-1_results', type=str, help='')
@@ -38,7 +39,6 @@ for infer_path in models:
         vae = VQGanVAE(args.vqgan_model_path, args.vqgan_config_path).cuda()
         print(output_pt_file)
         output = torch.load(output_pt_file)
-        breakpoint()
         for i, row in tqdm(enumerate(output), desc='len of file'):
             max_img_num = 0
             bsz = len(row['img_paths'])

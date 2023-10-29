@@ -42,7 +42,7 @@ class TransformerLightning_unified(pl.LightningModule):
         self.pad_token_idx = pad_token_idx
         self.sos_token_idx = sos_token_idx
         self.eos_token_idx = eos_token_idx
-        self.save_dir = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-1' #save_dir 
+        self.save_dir = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-4' #save_dir 
         self.causal = causal_trans
         self.subs = []
 
@@ -134,7 +134,7 @@ class TransformerLightning_unified(pl.LightningModule):
                     cls_loss += weights[0][task]*task_loss
                 else:
                     cls_loss += task_loss
-        loss = gen_loss + cls_loss
+        loss = gen_loss + 0.1 * cls_loss
         # print(loss,task_loss, loss-task_loss)
 
         self.log('train_loss', loss, on_step=True, on_epoch=True, sync_dist=True)
@@ -221,7 +221,7 @@ class TransformerLightning_unified(pl.LightningModule):
                     cls_loss += weights[0][task]*task_loss
                 else:
                     cls_loss += task_loss
-        loss = gen_loss + cls_loss
+        loss = gen_loss + 0.1 * cls_loss
         # print(loss,task_loss, loss-task_loss)
         
         self.log('val_loss', loss, on_step=False, on_epoch=True, sync_dist=True)

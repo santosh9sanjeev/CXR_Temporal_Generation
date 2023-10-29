@@ -91,7 +91,7 @@ class UnifiedCXRDataset(Dataset):
             self.dict_by_subject_id = {k: self.dict_by_subject_id[k] for k in self.dict_by_subject_id.keys() if len(self.dict_by_subject_id[k]) == target_count}
 
 
-        # print('self.dict_by_studyid', self.dict_by_studyid)
+        # print('self.dict_by_subject_id ', self.dict_by_subject_id)
 
         self.key_list = list(self.dict_by_subject_id.keys())
 
@@ -143,7 +143,7 @@ class UnifiedCXRDataset(Dataset):
 
     def get_weights(self):
         df = self.rd2[self.rd2['study_id_count']==1]
-        df = df.drop(columns = ['idx', 'dicom_id', 'subject_id', 'study_id', 'Support Devices', 'No Finding', 'Fracture', 'total_number_of_studies','study_id_count'])
+        df = df.drop(columns = ['idx', 'dicom_id', 'subject_id', 'study_id', 'total_number_of_studies','study_id_count'])
         weights = np.nansum(df, axis=0)
         weights = weights.max() - weights + weights.mean()
         weights = weights/weights.max()
@@ -155,7 +155,7 @@ class UnifiedCXRDataset(Dataset):
 
     def __getitem__(self, idx):
         subject_id = self.key_list[idx]
-
+ 
         if self.select_studies == 'each':
             assert len(self.dict_by_subject_id[subject_id]) == self.target_count, f'{subject_id} has {len(self.dict_by_subject_id[subject_id])} data, but target_count is {self.target_count}.'
         elif self.select_studies == 'all':
@@ -193,7 +193,9 @@ class UnifiedCXRDataset(Dataset):
                 rs = self.rd2.loc[(self.rd2['dicom_id'] == str(dicom_id)) & (self.rd2['subject_id'] == str(subject_id)) & (self.rd2['study_id']==int(studyid))]
                 rs1 = rs.values.tolist()[0]
                 nr1, nr2, nr3, nr4, Atelectasis, Cardiomegaly, Consolidation, Edema, Enlarged_Cardiomediastinum, Fracture, Lung_Lesion, Lung_Opacity, No_Finding, Pleural_Effusion, Pleural_Other, Pneumonia, Pneumothorax, Support_Devices, nr5, nr6 = [rs1[i] for i in range(len(rs.axes[1]))] #santosh
-                labels = [Atelectasis, Cardiomegaly, Consolidation, Edema, Enlarged_Cardiomediastinum, Lung_Lesion, Lung_Opacity, Pleural_Effusion, Pleural_Other, Pneumonia, Pneumothorax]
+                if No_Finding == 1:
+                    Atelectasis, Cardiomegaly, Consolidation, Edema, Enlarged_Cardiomediastinum, Fracture, Lung_Lesion, Lung_Opacity, Pleural_Effusion, Pleural_Other, Pneumonia, Pneumothorax, Support_Devices =  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                labels = [Atelectasis, Cardiomegaly, Consolidation, Edema, Enlarged_Cardiomediastinum, Fracture, Lung_Lesion, Lung_Opacity, Pleural_Effusion, Pleural_Other, Pneumonia, Pneumothorax, Support_Devices]
                 
                 labels = np.array(labels)
                 labels= labels.astype(float)
@@ -247,6 +249,8 @@ class UnifiedCXRDataset(Dataset):
 
         for i in range(num_img_in_subject):
             idx, dicom_id, subject_id, studyid, ViewPosition_text, StudyDate, StudyTime, count, curr_state = imgs_meta[i]#[:4]
+            if num_img_in_subject == 1:
+                count = '1'
             if curr_state == '0':#  and num_img_in_subject == 2:
                 prev_StudyDate = StudyDate
                 prev_StudyTime = StudyTime
@@ -289,7 +293,6 @@ class UnifiedCXRDataset(Dataset):
         for i in range(self.max_img_num):
             outputs[f'img{i+1}'] = image_output[i]
         return outputs
-
     #     self.dict_by_studyid = defaultdict(list)
 
     #     f = open(metadata_file, 'r')

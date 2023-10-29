@@ -20,8 +20,8 @@ from loader_unified import UnifiedCXRDataset
 from unified_plmodel import TransformerLightning_unified
 import warnings
 warnings.filterwarnings("ignore")
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4,14,15"
-# os.environ["CUDA_VISIBLE_DEVICES"] = "13"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4,14,15"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "10"
 
 if __name__ == '__main__':
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     args.num_tokens = train_ds.text_vocab_size
     args.img_vocab_size = train_ds.img_vocab_size
 
-    args.num_img_tokens = train_ds.img_vocab_size + (2*3) + args.max_img_num
+    args.num_img_tokens = train_ds.img_vocab_size + (2*2) + args.max_img_num
 
     args.max_text_len = train_ds.max_text_len  # 256
     args.max_img_len = train_ds.img_len * args.max_img_num
@@ -226,16 +226,16 @@ if __name__ == '__main__':
         pad_token_idx=tokenizer.token_to_id("[PAD]"),
         sos_token_idx=tokenizer.token_to_id("[SOS]"),
         eos_token_idx=tokenizer.token_to_id("[EOS]"),
-        # save_dir='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-2',
-        save_dir=args.save_dir,
+        save_dir='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/run/exp-4',
+        # save_dir=args.save_dir,
 
         causal_trans=args.causal_clm,
         **kargs_unified,
     )
 
     checkpoint_callback = ModelCheckpoint(
-        # dirpath='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-2',
-        dirpath=args.save_dir,
+        dirpath='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/run/exp-4',
+        # dirpath=args.save_dir,
         filename='{epoch:02d}-{train_loss: .2f}',
         verbose=True,
         save_last=True,
