@@ -19,9 +19,17 @@ from datamodule import CXRDataModule
 from loader_unified import UnifiedCXRDataset
 from unified_plmodel import TransformerLightning_unified
 import warnings
+from transformers import AutoModel, AutoTokenizer
+
 warnings.filterwarnings("ignore")
-# os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4,14,15"
-# os.environ["CUDA_VISIBLE_DEVICES"] = "10"
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4,8,15"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "12"
+
+
+cache_direc = "./biomed_VLP/"
+# Load the model and tokenizer
+url = "microsoft/BiomedVLP-CXR-BERT-specialized"
 
 if __name__ == '__main__':
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -120,17 +128,23 @@ if __name__ == '__main__':
     print("\n")
     pl.seed_everything(args.seed, workers=True)
 
-    tokenizer = ByteLevelBPETokenizer(
-        args.vocab_file,
-        args.merge_file,
-    )
-    tokenizer.add_special_tokens(["[PAD]", "[SOS]", "[EOS]", "[SEP]", "[MASK]"])
-    tokenizer._tokenizer.post_processor = BertProcessing(
-        ("[EOS]", tokenizer.token_to_id("[EOS]")),
-        ("[SOS]", tokenizer.token_to_id("[SOS]")),
-    )
-    tokenizer.enable_truncation(max_length=args.max_text_len)
-    tokenizer.enable_padding(pad_id=tokenizer.token_to_id("[PAD]"), pad_token="[PAD]", length=args.max_text_len)  
+    # tokenizer = ByteLevelBPETokenizer(
+    #     args.vocab_file,
+    #     args.merge_file,
+    # )
+    # tokenizer.add_special_tokens(["[PAD]", "[SOS]", "[EOS]", "[SEP]", "[MASK]"])
+    # tokenizer._tokenizer.post_processor = BertProcessing(
+    #     ("[EOS]", tokenizer.token_to_id("[EOS]")),
+    #     ("[SOS]", tokenizer.token_to_id("[SOS]")),
+    # )
+    # tokenizer.enable_truncation(max_length=args.max_text_len)
+    # tokenizer.enable_padding(pad_id=tokenizer.token_to_id("[PAD]"), pad_token="[PAD]", length=args.max_text_len)  
+
+    tokenizer = AutoTokenizer.from_pretrained(url, trust_remote_code=True, cache_dir = cache_direc)
+    tokenizer.add_special_tokens({"additional_special_tokens":["[PAD]", "[CLS]", "[SEP]", "[MASK]"]}) #sansan
+    print('lennnnn of tokeniserrr', len(tokenizer))
+
+
     dsclass = partial(
         UnifiedCXRDataset,
         img_root_dir=args.img_root_dir,
@@ -223,10 +237,10 @@ if __name__ == '__main__':
         lr=args.lr,
         weight_decay=args.weight_decay,
         tokenizer=tokenizer,
-        pad_token_idx=tokenizer.token_to_id("[PAD]"),
-        sos_token_idx=tokenizer.token_to_id("[SOS]"),
-        eos_token_idx=tokenizer.token_to_id("[EOS]"),
-        save_dir='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/run/exp-4',
+        pad_token_idx=tokenizer.convert_tokens_to_ids("[PAD]"),
+        sos_token_idx=tokenizer.convert_tokens_to_ids("[CLS]"),
+        eos_token_idx=tokenizer.convert_tokens_to_ids("[SEP]"),
+        save_dir='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-5-CXRBERT_cls_token',
         # save_dir=args.save_dir,
 
         causal_trans=args.causal_clm,
@@ -234,7 +248,7 @@ if __name__ == '__main__':
     )
 
     checkpoint_callback = ModelCheckpoint(
-        dirpath='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/run/exp-4',
+        dirpath='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-5-CXRBERT_cls_token',
         # dirpath=args.save_dir,
         filename='{epoch:02d}-{train_loss: .2f}',
         verbose=True,

@@ -4,10 +4,13 @@ import math
 import time
 import random
 import numpy as np
-
+import torch.nn as nn
 import torch
 from torch.optim import AdamW
 from torch.nn.functional import cross_entropy
+from sklearn.metrics import roc_auc_score, accuracy_score
+import sklearn.metrics
+import sklearn, sklearn.model_selection
 
 import pytorch_lightning as pl
 
@@ -17,11 +20,14 @@ from transformers.optimization import get_cosine_schedule_with_warmup
 
 random.seed(42)
 
+cache_direc = "/home/santoshsanjeev/Oxford/CXRRT/biomed_VLP/"
 
+# Load the model and tokenizer
+url = "microsoft/BiomedVLP-CXR-BERT-specialized"
 
 class TransformerLightning_unified(pl.LightningModule):
     def __init__(self, lr=5e-4, weight_decay=0.01,
-                 pad_token_idx=0, sos_token_idx=1, eos_token_idx=2,
+                 pad_token_idx=0, sos_token_idx=2, eos_token_idx=3,#sansan
                  save_dir="", causal_trans='conditioned_causal', **kargs):
         super().__init__()
         self.kargs = kargs
@@ -42,15 +48,138 @@ class TransformerLightning_unified(pl.LightningModule):
         self.pad_token_idx = pad_token_idx
         self.sos_token_idx = sos_token_idx
         self.eos_token_idx = eos_token_idx
-        self.save_dir = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-4' #save_dir 
+        self.save_dir = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-5-CXRBERT_cls_token' #save_dir 
         self.causal = causal_trans
         self.subs = []
 
         self.save_hyperparameters(ignore=['tokenizer'])
+
+        self.task_outputs={}
+        self.task_targets={}
         
+        for task in range(13):
+            self.task_outputs[task] = []
+            self.task_targets[task] = []
         # ADAM
+        self.sigmoid = nn.Sigmoid()
         self.cls_criterion = torch.nn.BCEWithLogitsLoss()
     
+    def classification_metric_evaluation(self, auc, task_aucs, task_outputs, task_targets):
+        perf_dict = {}
+        all_threshs = []#[0.58074194, 0.54576606, np.nan, 0.5225241, 0.66747427, np.nan, np.nan, 0.7036588, 0.521654, np.nan, 0.5775543, np.nan, np.nan, np.nan, 0.57897043, 0.520638, 0.6373577, 0.5326836]
+        all_min = []
+        all_max = []
+        all_ppv80 = []
+        all_accuracy = []
+        all_f1_score = []
+        all_precision = []
+        all_recall = []
+        all_auc = []
+        results = [auc, task_aucs, task_outputs, task_targets]
+        pathologies = ['Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Enlarged_Cardiomediastinum', 'Fracture', 'Lung_Lesion', 'Lung_Opacity', 'Pleural_Effusion', 'Pleural_Other', 'Pneumonia', 'Pneumothorax', 'Support_Devices']
+        for i, patho in enumerate(pathologies):
+            # print(i, patho)
+            opt_thres = np.nan
+            opt_min = np.nan
+            opt_max = np.nan
+            ppv80_thres = np.nan
+            accuracy = np.nan
+            f1_score = np.nan
+            precision = np.nan
+            recall = np.nan
+            auc = np.nan
+            
+            if (len(results[3][i]) > 0) and (len(np.unique(results[3][i])) == 2):
+                
+                #sigmoid
+                # all_outputs =  1.0/(1.0 + np.exp(-results[2][i]))
+                all_outputs = results[2][i]
+                fpr, tpr, thres_roc = sklearn.metrics.roc_curve(results[3][i], all_outputs)
+                pente = tpr - fpr
+                opt_thres = thres_roc[np.argmax(pente)]
+                opt_min = all_outputs.min()
+                opt_max = all_outputs.max()
+                
+                ppv, recall, thres_pr = sklearn.metrics.precision_recall_curve(results[3][i], all_outputs)
+                ppv80_thres_idx = np.where(ppv > 0.8)[0][0]
+                ppv80_thres = thres_pr[ppv80_thres_idx-1]
+                
+                auc = sklearn.metrics.roc_auc_score(results[3][i], all_outputs)
+                
+                # Calculate confusion matrix for accuracy, precision, recall, and F1 score
+                threshold = opt_thres #all_threshs[i]  
+                predicted_labels = (all_outputs >= threshold).astype(int)
+                true_labels = results[3][i]
+                confusion_matrix = sklearn.metrics.confusion_matrix(true_labels, predicted_labels)
+                TP = confusion_matrix[1, 1]
+                TN = confusion_matrix[0, 0]
+                FP = confusion_matrix[0, 1]
+                FN = confusion_matrix[1, 0]
+
+                # Calculate metrics
+                accuracy = (TP + TN) / (TP + TN + FP + FN)
+                precision = TP / (TP + FP)
+                recall = TP / (TP + FN)
+                f1_score = 2 * (precision * recall) / (precision + recall)
+                
+                # # Add metrics to perf_dict
+                # perf_dict[patho] = {
+                #     'AUC': round(auc, 2),
+                #     'Accuracy': round(accuracy, 2),
+                #     'F1 Score': round(f1_score, 2),
+                #     'Precision': round(precision, 2),
+                #     'Recall': round(recall, 2)
+                # }
+                
+                all_auc.append(auc)  # Append AUC to the list
+                
+            else:
+                perf_dict[patho] = "-"
+            
+            # Append metrics to respective lists
+            all_threshs.append(opt_thres)
+            all_min.append(opt_min)
+            all_max.append(opt_max)
+            all_ppv80.append(ppv80_thres)
+            all_accuracy.append(accuracy)
+            all_f1_score.append(f1_score)
+            all_precision.append(precision)
+            all_recall.append(recall)
+
+        # Print the results
+        # print("pathologies", pathologies)
+        # print("------------------------------------------------------------------------------------------------")
+        # print("op_threshs", str(all_threshs).replace("nan", "np.nan"))
+        # print("min", str(all_min).replace("nan", "np.nan"))
+        # print("max", str(all_max).replace("nan", "np.nan"))
+        # print("ppv80", str(all_ppv80).replace("nan", "np.nan"))
+        # print("accuracy", str(all_accuracy).replace("nan", "np.nan"))
+        # print("f1_score", str(all_f1_score).replace("nan", "np.nan"))
+        # print("precision", str(all_precision).replace("nan", "np.nan"))
+        # print("recall", str(all_recall).replace("nan", "np.nan"))
+        # print("all AUC values:", str(all_auc).replace("nan", "np.nan"))
+
+        # Calculate and print average metrics
+        avg_accuracy = np.nanmean(all_accuracy)
+        avg_f1_score = np.nanmean(all_f1_score)
+        avg_precision = np.nanmean(all_precision)
+        avg_recall = np.nanmean(all_recall)
+        avg_auc = np.nanmean(all_auc)
+
+        # print(f'Average Accuracy: {round(avg_accuracy, 2)}')
+        # print(f'Average F1 Score: {round(avg_f1_score, 2)}')
+        # print(f'Average Precision: {round(avg_precision, 2)}')
+        # print(f'Average Recall: {round(avg_recall, 2)}')
+        # print(f'Average AUC: {round(avg_auc, 2)}')
+        print(f'Average Accuracy: {round(avg_accuracy, 2)}, Average F1 Score: {round(avg_f1_score, 2)}, Average Precision: {round(avg_precision, 2)}, Average Recall: {round(avg_recall, 2)}, Average AUC: {round(avg_auc, 2)}')
+        self.log('Average Accuracy:', round(avg_accuracy, 2), on_step=False, on_epoch=True, sync_dist=True)
+        self.log('Average F1 Score:', round(avg_f1_score, 2), on_step=False, on_epoch=True, sync_dist=True)
+        self.log('Average Precision:', round(avg_precision, 2), on_step=False, on_epoch=True, sync_dist=True)
+        self.log('Average Recall:', round(avg_recall, 2), on_step=False, on_epoch=True, sync_dist=True)
+        self.log('Average AUC:', round(avg_auc, 2), on_step=False, on_epoch=True, sync_dist=True)
+
+
+        return avg_accuracy, avg_f1_score, avg_precision, avg_recall, avg_auc
 
     def forward(self, batch):
         # logit = self.transformerLM_unified(batch, causal=self.causal)
@@ -141,7 +270,7 @@ class TransformerLightning_unified(pl.LightningModule):
         self.log('train_gen_loss', gen_loss, on_step=True, on_epoch=True, sync_dist=True)
         self.log('train_cls_loss', cls_loss, on_step=True, on_epoch=True, sync_dist=True)
 
-        output = {
+        output = { #sansan
             'batch_idx': batch_idx,
             'loss': loss
         }
@@ -216,11 +345,16 @@ class TransformerLightning_unified(pl.LightningModule):
             task_output = task_output[mask]
             task_target = task_target[mask]
             if len(task_target) > 0:
-                task_loss = self.cls_criterion(task_output.float(), task_target.float())
-                if self.taskweights:
-                    cls_loss += weights[0][task]*task_loss
-                else:
-                    cls_loss += task_loss
+                cls_loss = self.cls_criterion(task_output.float(), task_target.float()) #sansan
+                # if self.taskweights:
+                #     cls_loss += weights[0][task]*task_loss
+                # else:
+                #     cls_loss += task_loss
+            # print(type(self.task_outputs[task]), type(self.task_targets[task]))
+            self.task_outputs[task].append(self.sigmoid(task_output).detach().cpu().numpy()) #sansan
+            self.task_targets[task].append(task_target.detach().cpu().numpy()) #sansan
+            
+            
         loss = gen_loss + 0.1 * cls_loss
         # print(loss,task_loss, loss-task_loss)
         
@@ -229,17 +363,39 @@ class TransformerLightning_unified(pl.LightningModule):
         self.log('val_cls_loss', cls_loss, on_step=True, on_epoch=True, sync_dist=True)
 
         # output = {
-        #     'batch_size': batch_size,
-        #     'loss': loss,
-        #     'un_loss': loss * batch_size,
+        #     'outputs': cls_output_list, #sansan
+        #     'targets': cls_target_list, #sansan
         # }
         # return output
     
     def validation_epoch_end(self, outputs):
-        # print(outputs)
-        # import sys
-        # sys.exit(0)
-        # self.log('val_loss', loss)
+
+        for task in range(len(self.task_targets)):
+            self.task_outputs[task] = np.concatenate(self.task_outputs[task])
+            self.task_targets[task] = np.concatenate(self.task_targets[task])
+    
+        task_aucs = []
+        for task in range(len(self.task_targets)):
+            if len(np.unique(self.task_targets[task]))> 1:
+                task_auc = sklearn.metrics.roc_auc_score(self.task_targets[task], self.task_outputs[task])
+                #print(task, task_auc)
+                task_aucs.append(task_auc)
+            else:
+                task_aucs.append(np.nan)
+
+        task_aucs = np.asarray(task_aucs)
+        auc = np.mean(task_aucs[~np.isnan(task_aucs)])
+        self.log('AUC', auc, on_step=False, on_epoch=True, sync_dist=True)
+        avg_accuracy, avg_f1_score, avg_precision, avg_recall, avg_auc = self.classification_metric_evaluation(auc, task_aucs, self.task_outputs, self.task_targets)
+        
+
+        self.task_outputs={}
+        self.task_targets={}
+        
+        for task in range(13):
+            self.task_outputs[task] = []
+            self.task_targets[task] = []
+        
         torch.cuda.empty_cache()
 
 
@@ -352,18 +508,18 @@ class TransformerLightning_unified(pl.LightningModule):
 
 
     def test_epoch_end(self, test_step_outputs):
-        from tokenizers import ByteLevelBPETokenizer
-        # from transformers import AutoModel, AutoTokenizer
-        from tokenizers.processors import BertProcessing
-        tokenizer = ByteLevelBPETokenizer('BBPE_tokenizer/vocab.json', 'BBPE_tokenizer/merges.txt')
-        # tokenizer = AutoTokenizer.from_pretrained(url, trust_remote_code=True, cache_dir = cache_direc)
+        # from tokenizers import ByteLevelBPETokenizer
+        from transformers import AutoModel, AutoTokenizer
+        # from tokenizers.processors import BertProcessing
+        # tokenizer = ByteLevelBPETokenizer('BBPE_tokenizer/vocab.json', 'BBPE_tokenizer/merges.txt')
+        tokenizer = AutoTokenizer.from_pretrained(url, trust_remote_code=True, cache_dir = cache_direc)
         tokenizer.add_special_tokens(["[PAD]", "[SOS]", "[EOS]", "[SEP]", "[MASK]"])
-        tokenizer._tokenizer.post_processor = BertProcessing(
-            ("[EOS]", tokenizer.token_to_id("[EOS]")),
-            ("[SOS]", tokenizer.token_to_id("[SOS]")),
-        )
-        tokenizer.enable_truncation(max_length=256)
-        tokenizer.enable_padding(pad_id=tokenizer.token_to_id("[PAD]"), pad_token="[PAD]", length=256)
+        # tokenizer._tokenizer.post_processor = BertProcessing(
+        #     ("[EOS]", tokenizer.token_to_id("[EOS]")),
+        #     ("[SOS]", tokenizer.token_to_id("[SOS]")),
+        # )
+        # tokenizer.enable_truncation(max_length=256)
+        # tokenizer.enable_padding(pad_id=tokenizer.token_to_id("[PAD]"), pad_token="[PAD]", length=256)
 
 
         gathered_test_step_outputs = self.all_gather(test_step_outputs)

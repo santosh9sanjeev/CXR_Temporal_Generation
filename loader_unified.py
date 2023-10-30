@@ -60,7 +60,6 @@ class UnifiedCXRDataset(Dataset):
                  under_sample="fixed"
                  ):
         super().__init__()
-
         assert max_img_num <= target_count, f'max_img_num({max_img_num}) should be less than target_count({target_count}).'
 
         self.under_sample = under_sample.split('_')[0]  # fixed
@@ -119,8 +118,9 @@ class UnifiedCXRDataset(Dataset):
         self.max_text_len = max_text_len
 
         self.tokenizer = tokenizer
-        self.text_vocab_size = self.tokenizer.get_vocab_size()
-
+        # self.text_vocab_size = self.tokenizer.get_vocab_size()
+        self.text_vocab_size = len(self.tokenizer)
+        print(self.text_vocab_size)
         # Rescale an image so that minimum side is equal to max_size, keeping the aspect ratio of the initial image.
         self.rescaler = albumentations.SmallestMaxSize(max_size=self.img_reso)
         self.cropper = albumentations.CenterCrop(height=self.img_reso, width=self.img_reso)
@@ -193,9 +193,9 @@ class UnifiedCXRDataset(Dataset):
                 rs = self.rd2.loc[(self.rd2['dicom_id'] == str(dicom_id)) & (self.rd2['subject_id'] == str(subject_id)) & (self.rd2['study_id']==int(studyid))]
                 rs1 = rs.values.tolist()[0]
                 nr1, nr2, nr3, nr4, Atelectasis, Cardiomegaly, Consolidation, Edema, Enlarged_Cardiomediastinum, Fracture, Lung_Lesion, Lung_Opacity, No_Finding, Pleural_Effusion, Pleural_Other, Pneumonia, Pneumothorax, Support_Devices, nr5, nr6 = [rs1[i] for i in range(len(rs.axes[1]))] #santosh
-                if No_Finding == 1:
+                if No_Finding == 1: #sansan
                     Atelectasis, Cardiomegaly, Consolidation, Edema, Enlarged_Cardiomediastinum, Fracture, Lung_Lesion, Lung_Opacity, Pleural_Effusion, Pleural_Other, Pneumonia, Pneumothorax, Support_Devices =  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-                labels = [Atelectasis, Cardiomegaly, Consolidation, Edema, Enlarged_Cardiomediastinum, Fracture, Lung_Lesion, Lung_Opacity, Pleural_Effusion, Pleural_Other, Pneumonia, Pneumothorax, Support_Devices]
+                labels = [Atelectasis, Cardiomegaly, Consolidation, Edema, Enlarged_Cardiomediastinum, Fracture, Lung_Lesion, Lung_Opacity, Pleural_Effusion, Pleural_Other, Pneumonia, Pneumothorax, Support_Devices] #sansan
                 
                 labels = np.array(labels)
                 labels= labels.astype(float)
@@ -276,13 +276,13 @@ class UnifiedCXRDataset(Dataset):
                     data+= "\nThere is no previous scan available."
                 # print(data)
                 src = data.replace('  ', ' ').replace('  ', ' ').lower()
-                ids_list = self.tokenizer.encode(src).ids
-                # text_output = self.tokenizer.encode(src, add_special_tokens=True, padding='max_length', max_length = 256, truncation = True, return_tensors='pt')
+                # ids_list = self.tokenizer.encode(src).ids
+                text_output = self.tokenizer.encode(src, add_special_tokens=True, padding='max_length', max_length = 256, truncation = True, return_tensors='pt') #sansan
                 # # print(text_output.shape)
-                # text_output = text_output.squeeze(0)
+                text_output = text_output.squeeze(0)
                 # # print('afterrrrrrr', text_output.shape)
                 #  = torch.tensor(ids_list)
-                text_output = torch.tensor(ids_list)
+                # text_output = torch.tensor(ids_list)
         # weights = UnifiedCXRDataset.get_weights(self)
         # print(weights, type(weights))
         # print(labels, type(labels))

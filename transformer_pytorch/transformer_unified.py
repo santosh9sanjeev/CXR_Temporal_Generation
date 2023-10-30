@@ -227,7 +227,7 @@ class TransformerLM_unified(nn.Module):
         # ADAM
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.mlp_head = nn.Linear(dim, 13)
-        self.mlp_dropout = nn.Dropout(0.4)
+        self.mlp_dropout = nn.Dropout(0.4) #sansan
 
     def check_redraw_projections(self):
         self.performer.check_redraw_projections()
@@ -575,7 +575,7 @@ class TransformerLM_unified(nn.Module):
         cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b = b)
         x = torch.cat((x, cls_tokens), dim=1)
 
-        x = self.dropout(x)
+        x = self.dropout(x) #sansan
 
         # performer layers
         layer_pos_emb = self.layer_pos_emb(x)
