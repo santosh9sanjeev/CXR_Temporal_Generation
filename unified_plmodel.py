@@ -17,9 +17,14 @@ from transformers.optimization import get_cosine_schedule_with_warmup
 
 random.seed(42)
 
+cache_direc = "/home/santoshsanjeev/Oxford/CXRRT/biomed_VLP/"
+
+# Load the model and tokenizer
+url = "microsoft/BiomedVLP-CXR-BERT-specialized"
+
 class TransformerLightning_unified(pl.LightningModule):
     def __init__(self, lr=5e-4, weight_decay=0.01,
-                 pad_token_idx=0, sos_token_idx=1, eos_token_idx=2,
+                 pad_token_idx=0, sos_token_idx=2, eos_token_idx=3,
                  save_dir="", causal_trans='conditioned_causal', **kargs):
         super().__init__()
         self.kargs = kargs

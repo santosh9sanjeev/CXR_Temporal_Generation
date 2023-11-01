@@ -113,8 +113,9 @@ class UnifiedCXRDataset(Dataset):
         self.max_text_len = max_text_len
 
         self.tokenizer = tokenizer
-        self.text_vocab_size = self.tokenizer.get_vocab_size()
 
+        self.text_vocab_size = len(self.tokenizer)
+        print(self.text_vocab_size)
         # Rescale an image so that minimum side is equal to max_size, keeping the aspect ratio of the initial image.
         self.rescaler = albumentations.SmallestMaxSize(max_size=self.img_reso)
         self.cropper = albumentations.CenterCrop(height=self.img_reso, width=self.img_reso)
@@ -177,8 +178,8 @@ class UnifiedCXRDataset(Dataset):
                 ViewPosition = 'AP_and_curr'
 
             elif curr_state == '0' and ViewPosition =='AP':
-                image_indices.insert(0, 1029)  # self.tokenizer.token_to_id("[SOS2]")
-                image_indices.append(1030)  # self.tokenizer.token_to_id("[EOS2]")
+                image_indices.insert(0, 1027)  # self.tokenizer.token_to_id("[SOS2]")
+                image_indices.append(1028)  # self.tokenizer.token_to_id("[EOS2]")
                 image_output.append(torch.tensor(image_indices))
                 ViewPosition = 'AP_and_prev'
 
@@ -219,6 +220,8 @@ class UnifiedCXRDataset(Dataset):
 
         for i in range(num_img_in_subject):
             idx, dicom_id, subject_id, studyid, ViewPosition_text, StudyDate, StudyTime, count, curr_state = imgs_meta[i]#[:4]
+            if num_img_in_subject == 1:
+                count = '1'
             if curr_state == '0':#  and num_img_in_subject == 2:
                 prev_StudyDate = StudyDate
                 prev_StudyTime = StudyTime
@@ -244,13 +247,13 @@ class UnifiedCXRDataset(Dataset):
                     data+= "\nThere is no previous scan available."
                 # print(data)
                 src = data.replace('  ', ' ').replace('  ', ' ').lower()
-                ids_list = self.tokenizer.encode(src).ids
-                # text_output = self.tokenizer.encode(src, add_special_tokens=True, padding='max_length', max_length = 256, truncation = True, return_tensors='pt')
+                # ids_list = self.tokenizer.encode(src).ids
+                text_output = self.tokenizer.encode(src, add_special_tokens=True, padding='max_length', max_length = 256, truncation = True, return_tensors='pt')
                 # # print(text_output.shape)
-                # text_output = text_output.squeeze(0)
+                text_output = text_output.squeeze(0)
                 # # print('afterrrrrrr', text_output.shape)
                 #  = torch.tensor(ids_list)
-                text_output = torch.tensor(ids_list)
+                # text_output = torch.tensor(ids_list)
 
 
         outputs = {'txt': text_output, 'modes': self.modes, 'subject_id': subject_id, 'dicom_id':dicom_id,
