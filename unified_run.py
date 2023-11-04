@@ -3,23 +3,23 @@ import time
 import subprocess
 from glob import glob
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "13"
+os.environ["CUDA_VISIBLE_DEVICES"] = "9"
 
 models = {
-    'ckpt/unixgen.ckpt'
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-6-CXRBERT_wo_token/epoch=72-train_loss= 4.40.ckpt'
     : [
-        ['fixed_each_unified', 1, 1],
+        # ['fixed_each_unified', 1, 1],
 
-        ['fixed_each_unified', 1, 2],
+        # ['fixed_each_unified', 1, 2],
         ['fixed_each_unified', 2, 2],
 
-        ['fixed_each_unified', 1, 3],
-        ['fixed_each_unified', 2, 3],
-        ['fixed_each_unified', 3, 3],
+    #     ['fixed_each_unified', 1, 3],
+    #     ['fixed_each_unified', 2, 3],
+    #     ['fixed_each_unified', 3, 3],
     ]
 }
 
-test_meta_files = ['metadata/mimiccxr_test_sub_final.csv']
+test_meta_files = ['/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v3/test_main_file_v2.csv']
 
 for model_path, configs in models.items():
     for config in configs:

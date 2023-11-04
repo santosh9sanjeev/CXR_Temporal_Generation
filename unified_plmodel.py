@@ -17,7 +17,7 @@ from transformers.optimization import get_cosine_schedule_with_warmup
 
 random.seed(42)
 
-cache_direc = "/home/santoshsanjeev/Oxford/CXRRT/biomed_VLP/"
+cache_direc = "./biomed_VLP/"
 
 # Load the model and tokenizer
 url = "microsoft/BiomedVLP-CXR-BERT-specialized"
@@ -46,6 +46,7 @@ class TransformerLightning_unified(pl.LightningModule):
         self.eos_token_idx = eos_token_idx
         self.save_dir = save_dir
         self.causal = causal_trans
+        self.subs = []
 
         self.save_hyperparameters(ignore=['tokenizer'])
 
@@ -222,6 +223,8 @@ class TransformerLightning_unified(pl.LightningModule):
             modes_img3.append(['img3'])
 
         # generate texts
+        print('-'*30)
+        print('generate txt')
         batch['modes'] = modes_txt
 
         gen_texts = self.transformerLM_unified.generate_texts(
@@ -236,7 +239,14 @@ class TransformerLightning_unified(pl.LightningModule):
         )
 
         # generate img1
+        print('-'*30)
+        print('generate img1')
         batch['modes'] = modes_img1
+        import copy
+        tmp_batch_view = copy.deepcopy(batch['view_position'])
+        batch['view_position'][-1], batch['view_position'][0] = batch['view_position'][0], batch['view_position'][-1]
+        tmp_batch_image_state = copy.deepcopy(batch['image_state'])
+        batch['image_state'][-1], batch['image_state'][0] = batch['image_state'][0], batch['image_state'][-1]
 
         gen_images1 = self.transformerLM_unified.generate_image(
             batch,
@@ -245,11 +255,18 @@ class TransformerLightning_unified(pl.LightningModule):
             temperature=0.7,
             causal=self.causal
         )
+        batch['view_position'] = copy.deepcopy(tmp_batch_view)
+        batch['image_state']   = copy.deepcopy(tmp_batch_image_state)
 
 
         if 'img2' in batch.keys():
             # generate img2
             batch['modes'] = modes_img2
+            import copy
+            tmp_batch_view = copy.deepcopy(batch['view_position'])
+            batch['view_position'][-1], batch['view_position'][1] = batch['view_position'][1], batch['view_position'][-1]
+            tmp_batch_image_state = copy.deepcopy(batch['image_state'])
+            batch['image_state'][-1], batch['image_state'][1] = batch['image_state'][1], batch['image_state'][-1]
 
             gen_images2 = self.transformerLM_unified.generate_image(
                 batch,
@@ -258,10 +275,16 @@ class TransformerLightning_unified(pl.LightningModule):
                 temperature=0.7,
                 causal=self.causal
             )
+            batch['view_position'] = copy.deepcopy(tmp_batch_view)
+            batch['image_state']   = copy.deepcopy(tmp_batch_image_state)
 
         if 'img3' in batch.keys():
+            raise ValueError("HAHAHAHAHAHA")
             # generate img3
             batch['modes'] = modes_img3
+            # import copy
+            # tmp_batch_view = copy.deepcopy(batch['view_position'])
+            # batch['view_position'][-1] = batch['view_position'][2]
 
             gen_images3 = self.transformerLM_unified.generate_image(
                 batch,
@@ -270,8 +293,10 @@ class TransformerLightning_unified(pl.LightningModule):
                 temperature=0.7,
                 causal=self.causal
             )
+            # batch['view_position'] = copy.deepcopy(tmp_batch_view)
 
         output = {
+            'subject_ids':subject_ids,
             'GT_text': txt,
             'gen_text': gen_texts,
             'GT_image1': img1,
@@ -280,6 +305,7 @@ class TransformerLightning_unified(pl.LightningModule):
             'modes_txt': modes_txt,
             'modes_img1': modes_img1,
             'view': view,
+            'img_state': img_state,
         }
 
         if 'img2' in batch.keys():
@@ -294,21 +320,26 @@ class TransformerLightning_unified(pl.LightningModule):
 
         return output
 
-
     def test_epoch_end(self, test_step_outputs):
-        from tokenizers import ByteLevelBPETokenizer
-        # from transformers import AutoModel, AutoTokenizer
-        from tokenizers.processors import BertProcessing
-        tokenizer = ByteLevelBPETokenizer('BBPE_tokenizer/vocab.json', 'BBPE_tokenizer/merges.txt')
-        # tokenizer = AutoTokenizer.from_pretrained(url, trust_remote_code=True, cache_dir = cache_direc)
-        tokenizer.add_special_tokens(["[PAD]", "[SOS]", "[EOS]", "[SEP]", "[MASK]"])
-        tokenizer._tokenizer.post_processor = BertProcessing(
-            ("[EOS]", tokenizer.token_to_id("[EOS]")),
-            ("[SOS]", tokenizer.token_to_id("[SOS]")),
-        )
-        tokenizer.enable_truncation(max_length=256)
-        tokenizer.enable_padding(pad_id=tokenizer.token_to_id("[PAD]"), pad_token="[PAD]", length=256)
+        # from tokenizers import ByteLevelBPETokenizer
+        # # from transformers import AutoModel, AutoTokenizer
+        # from tokenizers.processors import BertProcessing
+        # tokenizer = ByteLevelBPETokenizer('BBPE_tokenizer/vocab.json', 'BBPE_tokenizer/merges.txt')
+        # # tokenizer = AutoTokenizer.from_pretrained(url, trust_remote_code=True, cache_dir = cache_direc)
+        # tokenizer.add_special_tokens(["[PAD]", "[SOS]", "[EOS]", "[SEP]", "[MASK]"])
+        # tokenizer._tokenizer.post_processor = BertProcessing(
+        #     ("[EOS]", tokenizer.token_to_id("[EOS]")),
+        #     ("[SOS]", tokenizer.token_to_id("[SOS]")),
+        # )
+        # tokenizer.enable_truncation(max_length=256)
+        # tokenizer.enable_padding(pad_id=tokenizer.token_to_id("[PAD]"), pad_token="[PAD]", length=256)
 
+        # from tokenizers import ByteLevelBPETokenizer
+        from transformers import AutoModel, AutoTokenizer
+        from tokenizers.processors import BertProcessing
+        # tokenizer = ByteLevelBPETokenizer('BBPE_tokenizer/vocab.json', 'BBPE_tokenizer/merges.txt')
+        tokenizer = AutoTokenizer.from_pretrained(url, trust_remote_code=True, cache_dir = cache_direc)
+        tokenizer.add_special_tokens({"additional_special_tokens":["[PAD]", "[CLS]", "[SEP]", "[MASK]"]})
 
         gathered_test_step_outputs = self.all_gather(test_step_outputs)
         # print(gathered_test_step_outputs)
