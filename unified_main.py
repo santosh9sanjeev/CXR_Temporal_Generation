@@ -2,9 +2,9 @@ import os
 import argparse
 import datetime
 from functools import partial
-
+import time
 import torch.nn as nn
-
+import torch
 import pytorch_lightning as pl
 from pytorch_lightning.plugins import DDPPlugin
 from pytorch_lightning.loggers import WandbLogger
@@ -26,6 +26,25 @@ warnings.filterwarnings("ignore")
 # os.environ["CUDA_VISIBLE_DEVICES"] = "12,13,11,6,5,10"
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "12"
+
+import subprocess
+
+def get_gpu_pids(gpu_id):
+    try:
+        result = subprocess.run(['nvidia-smi', '--query-compute-apps=pid', f'--id={gpu_id}', '--format=csv,noheader'], capture_output=True, text=True)
+        pids = [int(pid) for pid in result.stdout.strip().split('\n')]
+        return pids
+    except Exception as e:
+        print(f"Error: {e}")
+        return []
+
+def kill_processes(pids):
+    try:
+        for pid in pids:
+            subprocess.run(['kill', str(pid)])
+            print(f"Process with PID {pid} killed.")
+    except Exception as e:
+        print(f"Error: {e}")
 
 
 cache_direc = "./biomed_VLP/"
@@ -309,4 +328,18 @@ if __name__ == '__main__':
         model.target_count = args.target_count
         trainer = pl.Trainer(**trainer_args, logger=wandb_logger, plugins=DDPPlugin(find_unused_parameters=True), 
                                 gradient_clip_val=args.gradient_clip_val, profiler="simple", limit_train_batches=0, limit_val_batches=0)
-        trainer.test(model, test_dataloaders=dm.test_dataloader()) 
+        trainer.test(model, test_dataloaders=dm.test_dataloader())
+        # print('main end')
+        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache(device=6)
+        # device = torch.device("cuda:6" if torch.cuda.is_available() else "cpu")
+        pids = get_gpu_pids(6)
+
+        if pids:
+            kill_processes(pids)
+        else:
+            print(f"No processes found on GPU {6}.")
+
+
+
+

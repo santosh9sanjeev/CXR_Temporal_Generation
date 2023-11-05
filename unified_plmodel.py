@@ -44,7 +44,7 @@ class TransformerLightning_unified(pl.LightningModule):
         self.pad_token_idx = pad_token_idx
         self.sos_token_idx = sos_token_idx
         self.eos_token_idx = eos_token_idx
-        self.save_dir = save_dir
+        self.save_dir = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-6_debug/'#save_dir
         self.causal = causal_trans
         self.subs = []
 
@@ -419,7 +419,11 @@ class TransformerLightning_unified(pl.LightningModule):
                 f_img.close()
                 print("GEN_reports_test saved.")
                 print(f'\n\n')
-
+                torch.cuda.empty_cache()
+                # print('hiiiiiii')
+            # print('hellllloooo')
+        torch.cuda.empty_cache()
+        # print('endddddddddd')
         time.sleep(0.5)
 
     def configure_optimizers(self):
