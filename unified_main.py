@@ -28,7 +28,7 @@ from transformers import AutoModel, AutoTokenizer
 
 warnings.filterwarnings("ignore")
 
-# os.environ["CUDA_VISIBLE_DEVICES"] = "12,13,11,6,5,10"
+os.environ["CUDA_VISIBLE_DEVICES"] = "5,6,10,11,12,13"
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "12"
 
@@ -266,16 +266,16 @@ if __name__ == '__main__':
         pad_token_idx=tokenizer.convert_tokens_to_ids("[PAD]"),
         sos_token_idx=tokenizer.convert_tokens_to_ids("[CLS]"),
         eos_token_idx=tokenizer.convert_tokens_to_ids("[SEP]"),
-        save_dir='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-5-CXRBERT_cls_token',
-        # save_dir=args.save_dir,
+        # save_dir='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-5-CXRBERT_cls_token',
+        save_dir=args.save_dir,
 
         causal_trans=args.causal_clm,
         **kargs_unified,
     )
 
     checkpoint_callback = ModelCheckpoint(
-        dirpath='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-5-CXRBERT_cls_token',
-        # dirpath=args.save_dir,
+        # dirpath='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-5-CXRBERT_cls_token',
+        dirpath=args.save_dir,
         filename='{epoch:02d}-{train_loss: .2f}',
         verbose=True,
         save_last=True,
