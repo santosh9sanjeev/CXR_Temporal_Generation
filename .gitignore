@@ -10,3 +10,5 @@ transformer_pytorch/__pycache__/
 __pycache__/
 biomed_VLP/
 lightning_logs/
+full_v2/
+*.pt

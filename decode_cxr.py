@@ -13,12 +13,14 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
 
 models = {
-    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-6-CXRBERT_wo_token'
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-6-CXRBERT_wo_token/test_output_epoch=72_1_of_1_test_main_file_v2.pt'
 }
 
 for infer_path in models:
-    output_path = glob(os.path.join(infer_path, 'test_output_*.pt'))
-    output_path = [glob(os.path.join(infer_path, 'test_output_*.pt'))[-1]]
+    # output_path = glob(os.path.join(infer_path, 'test_output_*.pt'))
+    # output_path = [glob(os.path.join(infer_path, 'test_output_*.pt'))]
+    output_path = glob(os.path.join(infer_path))
+
     print(output_path)
     for output_pt_file in output_path:
         parser = argparse.ArgumentParser()
@@ -47,17 +49,17 @@ for infer_path in models:
 
             for b in tqdm(range(bsz), desc='bsz'):
                 name_paths = row['img_paths'][b].split('|')[0].split('/')
-                name = name_paths[-4] + "_" + name_paths[-3] + "_" + name_paths[-2]
+                name = name_paths[-4] + "_" + row['subject_ids'][b] + "_" + name_paths[-3] + "_" + name_paths[-2]
 
                 for i in range(1, max_img_num+1):
-                    ngpus, bsz, num_codes = row[f'GT_image{i}'].size()
+                    bsz, num_codes = row[f'GT_image{i}'].size()
 
                     GT_tensor = row[f'GT_image{i}'].reshape(-1, num_codes)[b][1:-1].unsqueeze(0)
                     gen_tensor = row[f'gen_image{i}'].reshape(-1, num_codes)[b][1:-1].unsqueeze(0)
 
-                    GT_img1 = vae.decode(GT_tensor)
+                    GT_img1 = vae.decode(GT_tensor.to('cuda'))
                     torch.cuda.empty_cache()
-                    gen_img1 = vae.decode(gen_tensor)
+                    gen_img1 = vae.decode(gen_tensor.to('cuda'))
                     torch.cuda.empty_cache()
 
                     if args.img_save:
@@ -71,3 +73,5 @@ for infer_path in models:
 
         if args.img_save:
             print("\n >>> image saving done!")
+
+

@@ -330,15 +330,15 @@ if __name__ == '__main__':
                                 gradient_clip_val=args.gradient_clip_val, profiler="simple", limit_train_batches=0, limit_val_batches=0)
         trainer.test(model, test_dataloaders=dm.test_dataloader())
         # print('main end')
-        torch.cuda.empty_cache()
-        # torch.cuda.empty_cache(device=6)
-        # device = torch.device("cuda:6" if torch.cuda.is_available() else "cpu")
-        pids = get_gpu_pids(6)
+        # torch.cuda.empty_cache()
+        # # torch.cuda.empty_cache(device=6)
+        # # device = torch.device("cuda:6" if torch.cuda.is_available() else "cpu")
+        # pids = get_gpu_pids(6)
 
-        if pids:
-            kill_processes(pids)
-        else:
-            print(f"No processes found on GPU {6}.")
+        # if pids:
+        #     kill_processes(pids)
+        # else:
+        #     print(f"No processes found on GPU {6}.")
 
 
 
