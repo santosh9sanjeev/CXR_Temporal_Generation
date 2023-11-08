@@ -11,7 +11,7 @@ from torch.nn.functional import cross_entropy
 from sklearn.metrics import roc_auc_score, accuracy_score
 import sklearn.metrics
 import sklearn, sklearn.model_selection
-
+import torch.distributed as dist
 import pytorch_lightning as pl
 
 from nltk.translate.bleu_score import corpus_bleu
@@ -19,8 +19,10 @@ from transformer_pytorch.transformer_unified import TransformerLM_unified
 from transformers.optimization import get_cosine_schedule_with_warmup
 
 random.seed(42)
+import torch.distributed as dist
+## in lightning module
 
-cache_direc = "/home/santoshsanjeev/Oxford/CXRRT/biomed_VLP/"
+cache_direc = "./biomed_VLP/"
 
 # Load the model and tokenizer
 url = "microsoft/BiomedVLP-CXR-BERT-specialized"
@@ -48,7 +50,7 @@ class TransformerLightning_unified(pl.LightningModule):
         self.pad_token_idx = pad_token_idx
         self.sos_token_idx = sos_token_idx
         self.eos_token_idx = eos_token_idx
-        self.save_dir = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-5-CXRBERT_cls_token' #save_dir 
+        self.save_dir = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3'#'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp_6_debug_v3/'#'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-5-CXRBERT_cls_token' #save_dir 
         self.causal = causal_trans
         self.subs = []
 
@@ -63,7 +65,19 @@ class TransformerLightning_unified(pl.LightningModule):
         # ADAM
         self.sigmoid = nn.Sigmoid()
         self.cls_criterion = torch.nn.BCEWithLogitsLoss()
-    
+
+    def merge(self,outputs):
+        if dist.is_initialized():
+            all_rank_outputs = [None for _ in range(dist.get_world_size())]    
+            dist.all_gather_object(all_rank_outputs,outputs)
+            outputs = [x for y in all_rank_outputs for x in y] ## all_rank_output[i]: i-th batch output
+        single_batch_output_cnt = len(outputs[0])
+        ret = [[] for _ in range(single_batch_output_cnt)]
+        for idx in range(single_batch_output_cnt):
+            for batch in outputs:
+                ret[idx].append(batch[idx])
+        return ret
+
     def classification_metric_evaluation(self, auc, task_aucs, task_outputs, task_targets):
         perf_dict = {}
         all_threshs = []#[0.58074194, 0.54576606, np.nan, 0.5225241, 0.66747427, np.nan, np.nan, 0.7036588, 0.521654, np.nan, 0.5775543, np.nan, np.nan, np.nan, 0.57897043, 0.520638, 0.6373577, 0.5326836]
@@ -432,6 +446,8 @@ class TransformerLightning_unified(pl.LightningModule):
             modes_img3.append(['img3'])
 
         # generate texts
+        print('-'*30)
+        print('generate txt')
         batch['modes'] = modes_txt
 
         gen_texts = self.transformerLM_unified.generate_texts(
@@ -446,7 +462,14 @@ class TransformerLightning_unified(pl.LightningModule):
         )
 
         # generate img1
+        print('-'*30)
+        print('generate img1')
         batch['modes'] = modes_img1
+        import copy
+        tmp_batch_view = copy.deepcopy(batch['view_position'])
+        batch['view_position'][-1], batch['view_position'][0] = batch['view_position'][0], batch['view_position'][-1]
+        tmp_batch_image_state = copy.deepcopy(batch['image_state'])
+        batch['image_state'][-1], batch['image_state'][0] = batch['image_state'][0], batch['image_state'][-1]
 
         gen_images1 = self.transformerLM_unified.generate_image(
             batch,
@@ -455,11 +478,18 @@ class TransformerLightning_unified(pl.LightningModule):
             temperature=0.7,
             causal=self.causal
         )
+        batch['view_position'] = copy.deepcopy(tmp_batch_view)
+        batch['image_state']   = copy.deepcopy(tmp_batch_image_state)
 
 
         if 'img2' in batch.keys():
             # generate img2
             batch['modes'] = modes_img2
+            import copy
+            tmp_batch_view = copy.deepcopy(batch['view_position'])
+            batch['view_position'][-1], batch['view_position'][1] = batch['view_position'][1], batch['view_position'][-1]
+            tmp_batch_image_state = copy.deepcopy(batch['image_state'])
+            batch['image_state'][-1], batch['image_state'][1] = batch['image_state'][1], batch['image_state'][-1]
 
             gen_images2 = self.transformerLM_unified.generate_image(
                 batch,
@@ -468,10 +498,16 @@ class TransformerLightning_unified(pl.LightningModule):
                 temperature=0.7,
                 causal=self.causal
             )
+            batch['view_position'] = copy.deepcopy(tmp_batch_view)
+            batch['image_state']   = copy.deepcopy(tmp_batch_image_state)
 
         if 'img3' in batch.keys():
+            raise ValueError("HAHAHAHAHAHA")
             # generate img3
             batch['modes'] = modes_img3
+            # import copy
+            # tmp_batch_view = copy.deepcopy(batch['view_position'])
+            # batch['view_position'][-1] = batch['view_position'][2]
 
             gen_images3 = self.transformerLM_unified.generate_image(
                 batch,
@@ -480,6 +516,7 @@ class TransformerLightning_unified(pl.LightningModule):
                 temperature=0.7,
                 causal=self.causal
             )
+            # batch['view_position'] = copy.deepcopy(tmp_batch_view)
 
         output = {
             'subject_ids':subject_ids,
@@ -503,17 +540,24 @@ class TransformerLightning_unified(pl.LightningModule):
             output['GT_image3'] = batch['img3']
             output['gen_image3'] = gen_images3
             output['modes_img3'] = modes_img3
+        # After generating gen_texts
+        # print(f'gen_texts on GPU {self.device}:', gen_texts)
 
+        # # After generating gen_images1
+        # print(f'gen_images1 on GPU {self.device}:', gen_images1)
+        # print(out)
+        # gathered_outputs = self.all_gather(output)
+        # print('gathered outputsssssss test_epoch_step',len(gathered_outputs))
+        print(len(output))
         return output
-
 
     def test_epoch_end(self, test_step_outputs):
         # from tokenizers import ByteLevelBPETokenizer
-        from transformers import AutoModel, AutoTokenizer
+        # # from transformers import AutoModel, AutoTokenizer
         # from tokenizers.processors import BertProcessing
         # tokenizer = ByteLevelBPETokenizer('BBPE_tokenizer/vocab.json', 'BBPE_tokenizer/merges.txt')
-        tokenizer = AutoTokenizer.from_pretrained(url, trust_remote_code=True, cache_dir = cache_direc)
-        tokenizer.add_special_tokens(["[PAD]", "[SOS]", "[EOS]", "[SEP]", "[MASK]"])
+        # # tokenizer = AutoTokenizer.from_pretrained(url, trust_remote_code=True, cache_dir = cache_direc)
+        # tokenizer.add_special_tokens(["[PAD]", "[SOS]", "[EOS]", "[SEP]", "[MASK]"])
         # tokenizer._tokenizer.post_processor = BertProcessing(
         #     ("[EOS]", tokenizer.token_to_id("[EOS]")),
         #     ("[SOS]", tokenizer.token_to_id("[SOS]")),
@@ -521,87 +565,100 @@ class TransformerLightning_unified(pl.LightningModule):
         # tokenizer.enable_truncation(max_length=256)
         # tokenizer.enable_padding(pad_id=tokenizer.token_to_id("[PAD]"), pad_token="[PAD]", length=256)
 
+        # from tokenizers import ByteLevelBPETokenizer
+        from transformers import AutoModel, AutoTokenizer
+        from tokenizers.processors import BertProcessing
+        # tokenizer = ByteLevelBPETokenizer('BBPE_tokenizer/vocab.json', 'BBPE_tokenizer/merges.txt')
+        tokenizer = AutoTokenizer.from_pretrained(url, trust_remote_code=True, cache_dir = cache_direc)
+        tokenizer.add_special_tokens({"additional_special_tokens":["[PAD]", "[CLS]", "[SEP]", "[MASK]"]})
 
-        gathered_test_step_outputs = self.all_gather(test_step_outputs)
-        # print(gathered_test_step_outputs)
-        img_paths = gathered_test_step_outputs[0]['img_paths']
-        subject_id = gathered_test_step_outputs[0]['subject_ids']
-        if self.max_img_num != -1:
-            max_text_len = gathered_test_step_outputs[0]['GT_text'].size(-1)
-            total_GT_text = torch.empty(0, max_text_len).type_as(gathered_test_step_outputs[0]['GT_text'])
-            total_gen_text = torch.empty(0, max_text_len).type_as(gathered_test_step_outputs[0]['gen_text'])
+        print('test_epoch_end start',len(test_step_outputs))
+        torch.save(test_step_outputs, os.path.join(self.save_dir, f"{self.device}_test_output_{self.ckpt_path.split('/')[-1].split('-')[0]}_{str(self.max_img_num)}_of_{str(self.target_count)}_{self.test_meta_file_name}.pt"))
+        
+        # if self.global_rank == 0:
+        #     gathered_test_step_outputs = self.all_gather(test_step_outputs)
+        #     print(f"after gather, len = {len(gathered_test_step_outputs)}")
+        #     # print('test_epoch_After',len(gathered_test_step_outputs))
+        #     # print(gathered_test_step_outputs)
+        #     img_paths = gathered_test_step_outputs[0]['img_paths']
+        #     subject_id = gathered_test_step_outputs[0]['subject_ids']
+        #     if self.max_img_num != -1:
+        #         max_text_len = gathered_test_step_outputs[0]['GT_text'].size(-1)
+        #         total_GT_text = torch.empty(0, max_text_len).type_as(gathered_test_step_outputs[0]['GT_text'])
+        #         total_gen_text = torch.empty(0, max_text_len).type_as(gathered_test_step_outputs[0]['gen_text'])
 
-            for i, out in enumerate(gathered_test_step_outputs):
-                GT_text = out['GT_text'].reshape(-1, max_text_len)
-                gen_text = out['gen_text'].reshape(-1, max_text_len)
-                sub = out['subject_ids']
-                # print('subbbbbbbbbbbb', sub)
-                self.subs.extend(sub)
-                total_GT_text = torch.cat((total_GT_text, GT_text), dim=0)
-                total_gen_text = torch.cat((total_gen_text, gen_text), dim=0)
+        #         for i, out in enumerate(gathered_test_step_outputs):
+        #             GT_text = out['GT_text'].reshape(-1, max_text_len)
+        #             gen_text = out['gen_text'].reshape(-1, max_text_len)
+        #             sub = out['subject_ids']
+        #             # print('subbbbbbbbbbbb', sub)
+        #             self.subs.extend(sub)
+        #             total_GT_text = torch.cat((total_GT_text, GT_text), dim=0)
+        #             total_gen_text = torch.cat((total_gen_text, gen_text), dim=0)
+        #     print('hiiiiiiiii')
+        #     if self.max_img_num != -1:
+        #         torch.save(gathered_test_step_outputs, os.path.join(self.save_dir, f"test_output_{self.ckpt_path.split('/')[-1].split('-')[0]}_{str(self.max_img_num)}_of_{str(self.target_count)}_{self.test_meta_file_name}_v2.pt"))
+        #         # !# For generated texts
+        #         GT_decoded_texts, gen_decoded_texts = [], []
+        #         for gt_text_i, gen_text_i in zip(total_GT_text, total_gen_text):
+        #             gt_text_i = gt_text_i.tolist()
+        #             gen_text_i = gen_text_i.tolist()
+        #             # gt_decoded_text_i = tokenizer.decode(gt_text_i, skip_special_tokens=True, padding='max_length', max_length = 256, truncation = True)#tokenizer.decode(gt_text_i, skip_special_tokens=True)
+        #             gt_decoded_text_i = tokenizer.decode(gt_text_i, skip_special_tokens=True)
+        #             gen_decoded_text_i = tokenizer.decode(gen_text_i, skip_special_tokens=True)
 
-        if self.global_rank == 0:
-            if self.max_img_num != -1:
-                torch.save(gathered_test_step_outputs, os.path.join(self.save_dir, f"test_output_{self.ckpt_path.split('/')[-1].split('-')[0]}_{str(self.max_img_num)}_of_{str(self.target_count)}_{self.test_meta_file_name}.pt"))
-                # !# For generated texts
-                GT_decoded_texts, gen_decoded_texts = [], []
-                for gt_text_i, gen_text_i in zip(total_GT_text, total_gen_text):
-                    gt_text_i = gt_text_i.tolist()
-                    gen_text_i = gen_text_i.tolist()
-                    # gt_decoded_text_i = tokenizer.decode(gt_text_i, skip_special_tokens=True, padding='max_length', max_length = 256, truncation = True)#tokenizer.decode(gt_text_i, skip_special_tokens=True)
-                    gt_decoded_text_i = tokenizer.decode(gt_text_i, skip_special_tokens=True)
-                    gen_decoded_text_i = tokenizer.decode(gen_text_i, skip_special_tokens=True)
+        #             # gen_decoded_text_i = tokenizer.decode(gen_text_i, skip_special_tokens=True, padding='max_length', max_length = 256, truncation = True)#tokenizer.decode(gen_text_i, skip_special_tokens=True)
+        #             GT_decoded_texts.append(gt_decoded_text_i)
+        #             gen_decoded_texts.append(gen_decoded_text_i)
+        #         # calculate BLEU
+        #         references = []
+        #         candidates = []
+        #         for gt_decoded_text_i, gen_decoded_text_i in zip(GT_decoded_texts, gen_decoded_texts):
+        #             reference = [gt_decoded_text_i.split(' ')]
+        #             candidate = gen_decoded_text_i.split(' ')
+        #             references.append(reference)
+        #             candidates.append(candidate)
 
-                    # gen_decoded_text_i = tokenizer.decode(gen_text_i, skip_special_tokens=True, padding='max_length', max_length = 256, truncation = True)#tokenizer.decode(gen_text_i, skip_special_tokens=True)
-                    GT_decoded_texts.append(gt_decoded_text_i)
-                    gen_decoded_texts.append(gen_decoded_text_i)
-                # calculate BLEU
-                references = []
-                candidates = []
-                for gt_decoded_text_i, gen_decoded_text_i in zip(GT_decoded_texts, gen_decoded_texts):
-                    reference = [gt_decoded_text_i.split(' ')]
-                    candidate = gen_decoded_text_i.split(' ')
-                    references.append(reference)
-                    candidates.append(candidate)
-
-                bleu1 = corpus_bleu(references, candidates, weights=(1, 0, 0, 0))
-                bleu2 = corpus_bleu(references, candidates, weights=(1 / 2, 1 / 2, 0, 0))
-                bleu3 = corpus_bleu(references, candidates, weights=(1 / 3, 1 / 3, 1 / 3, 0))
-                bleu4 = corpus_bleu(references, candidates, weights=(1 / 4, 1 / 4, 1 / 4, 1 / 4))
-                print(f'Cumulative 1-gram: {bleu1:.3f}')
-                print(f'Cumulative 2-gram: {bleu2:.3f}')
-                print(f'Cumulative 3-gram: {bleu3:.3f}')
-                print(f'Cumulative 4-gram: {bleu4:.3f}')
-                self.log("test_BLEU-1", bleu1)
-                self.log("test_BLEU-2", bleu2)
-                self.log("test_BLEU-3", bleu3)
-                self.log("test_BLEU-4", bleu4)
-                # save csv files for labeler
-                GT_REPORTS_PATH = os.path.join(self.save_dir, 'GT_reports_test_' + str(round(bleu1, 3)) + '_' + str(
-                    round(bleu2, 3)) + '_' + str(round(bleu3, 3)) + '_' + str(round(bleu4, 3)) + '_' + self.ckpt_path.split('/')[-1].split('-')[0] + '_' + str(self.max_img_num) + '_of_' + str(self.target_count) + self.test_meta_file_name + '.csv')
-                GEN_REPORTS_PATH = os.path.join(self.save_dir, 'GEN_reports_test_' + str(round(bleu1, 3)) + '_' + str(
-                    round(bleu2, 3)) + '_' + str(round(bleu3, 3)) + '_' + str(round(bleu4, 3)) + '_' + self.ckpt_path.split('/')[-1].split('-')[0] + '_' + str(self.max_img_num) + '_of_' + str(self.target_count) + self.test_meta_file_name + '.csv')
-                IMG_PATHS = os.path.join(self.save_dir, 'IMG_paths_test_' + str(round(bleu1, 3)) + '_' + str(round(bleu2, 3)) + '_' + str(
-                                             round(bleu3, 3)) + '_' + str(round(bleu4, 3)) + '_' + self.ckpt_path.split('/')[-1].split('-')[0] + '_' + str(self.max_img_num) + '_of_' + str(self.target_count) + self.test_meta_file_name + '.csv')
-                f_gt = open(GT_REPORTS_PATH, 'a')
-                wr_gt = csv.writer(f_gt)
-                f_gen = open(GEN_REPORTS_PATH, 'a')
-                wr_gen = csv.writer(f_gen)
-                f_img = open(IMG_PATHS, 'a')
-                wr_img = csv.writer(f_img)
-                # print('lennnnn', len(GT_decoded_texts), len(gen_decoded_texts), len(self.subs))
-                for gt_decoded_text_i, gen_decoded_text_i,subs_i in zip(GT_decoded_texts, gen_decoded_texts, self.subs):
-                    wr_gt.writerow([subs_i, gt_decoded_text_i])
-                    wr_gen.writerow([subs_i, gen_decoded_text_i])
-                for subs_i, img_paths_i in zip(img_paths, self.subs):
-                    wr_img.writerow([subs_i, img_paths_i])
-                f_gt.close()
-                f_gen.close()
-                f_img.close()
-                print("GEN_reports_test saved.")
-                print(f'\n\n')
-
-        time.sleep(0.5)
+        #         bleu1 = corpus_bleu(references, candidates, weights=(1, 0, 0, 0))
+        #         bleu2 = corpus_bleu(references, candidates, weights=(1 / 2, 1 / 2, 0, 0))
+        #         bleu3 = corpus_bleu(references, candidates, weights=(1 / 3, 1 / 3, 1 / 3, 0))
+        #         bleu4 = corpus_bleu(references, candidates, weights=(1 / 4, 1 / 4, 1 / 4, 1 / 4))
+        #         print(f'Cumulative 1-gram: {bleu1:.3f}')
+        #         print(f'Cumulative 2-gram: {bleu2:.3f}')
+        #         print(f'Cumulative 3-gram: {bleu3:.3f}')
+        #         print(f'Cumulative 4-gram: {bleu4:.3f}')
+        #         self.log("test_BLEU-1", bleu1)
+        #         self.log("test_BLEU-2", bleu2)
+        #         self.log("test_BLEU-3", bleu3)
+        #         self.log("test_BLEU-4", bleu4)
+        #         # save csv files for labeler
+        #         GT_REPORTS_PATH = os.path.join(self.save_dir, 'GT_reports_test_' + str(round(bleu1, 3)) + '_' + str(
+        #             round(bleu2, 3)) + '_' + str(round(bleu3, 3)) + '_' + str(round(bleu4, 3)) + '_' + self.ckpt_path.split('/')[-1].split('-')[0] + '_' + str(self.max_img_num) + '_of_' + str(self.target_count) + self.test_meta_file_name + '.csv')
+        #         GEN_REPORTS_PATH = os.path.join(self.save_dir, 'GEN_reports_test_' + str(round(bleu1, 3)) + '_' + str(
+        #             round(bleu2, 3)) + '_' + str(round(bleu3, 3)) + '_' + str(round(bleu4, 3)) + '_' + self.ckpt_path.split('/')[-1].split('-')[0] + '_' + str(self.max_img_num) + '_of_' + str(self.target_count) + self.test_meta_file_name + '.csv')
+        #         IMG_PATHS = os.path.join(self.save_dir, 'IMG_paths_test_' + str(round(bleu1, 3)) + '_' + str(round(bleu2, 3)) + '_' + str(
+        #                                      round(bleu3, 3)) + '_' + str(round(bleu4, 3)) + '_' + self.ckpt_path.split('/')[-1].split('-')[0] + '_' + str(self.max_img_num) + '_of_' + str(self.target_count) + self.test_meta_file_name + '.csv')
+        #         f_gt = open(GT_REPORTS_PATH, 'a')
+        #         wr_gt = csv.writer(f_gt)
+        #         f_gen = open(GEN_REPORTS_PATH, 'a')
+        #         wr_gen = csv.writer(f_gen)
+        #         f_img = open(IMG_PATHS, 'a')
+        #         wr_img = csv.writer(f_img)
+        #         # print('lennnnn', len(GT_decoded_texts), len(gen_decoded_texts), len(self.subs))
+        #         for gt_decoded_text_i, gen_decoded_text_i,subs_i in zip(GT_decoded_texts, gen_decoded_texts, self.subs):
+        #             wr_gt.writerow([subs_i, gt_decoded_text_i])
+        #             wr_gen.writerow([subs_i, gen_decoded_text_i])
+        #         for subs_i, img_paths_i in zip(img_paths, self.subs):
+        #             wr_img.writerow([subs_i, img_paths_i])
+        #         f_gt.close()
+        #         f_gen.close()
+        #         f_img.close()
+        #         print("GEN_reports_test saved.")
+        #         print(f'\n\n')
+        #         # print('hiiiiiii')
+        #     # print('hellllloooo')
+        # # print('endddddddddd')
+        # time.sleep(0.5)
 
     def configure_optimizers(self):
         optimizer = AdamW(self.parameters(), lr=self.lr)
@@ -614,8 +671,7 @@ class TransformerLightning_unified(pl.LightningModule):
                     num_training_steps=self.kargs['epochs'] * len(train_loader)),
             'interval': 'step',
         }
-        return {"optimizer": optimizer, "lr_scheduler": scheduler}
-    # def test_epoch_end(self, test_step_outputs):
+        return {"optimizer": optimizer, "lr_scheduler": scheduler}    # def test_epoch_end(self, test_step_outputs):
     #     from tokenizers import ByteLevelBPETokenizer
     #     from tokenizers.processors import BertProcessing
     #     tokenizer = ByteLevelBPETokenizer('BBPE_tokenizer/vocab.json', 'BBPE_tokenizer/merges.txt')
