@@ -7,7 +7,7 @@ from collections import defaultdict
 import pandas as pd
 import albumentations
 import albumentations.pytorch
-
+import re
 import torch
 from torch.utils.data import Dataset
 import numpy as np
@@ -149,7 +149,24 @@ class UnifiedCXRDataset(Dataset):
         weights = weights/weights.max()
         # print("task weights", weights)
         return weights
+
+
+    def clean_report_mimic_cxr(self, report):
+        report_cleaner = lambda t: t.replace('\n', ' ').replace('__', '_').replace('__', '_').replace('__', '_') \
+            .replace('__', '_').replace('__', '_').replace('__', '_').replace('__', '_').replace('  ', ' ') \
+            .replace('  ', ' ').replace('  ', ' ').replace('  ', ' ').replace('  ', ' ').replace('  ', ' ') \
+            .replace('..', '.').replace('..', '.').replace('..', '.').replace('..', '.').replace('..', '.') \
+            .replace('..', '.').replace('..', '.').replace('..', '.').replace('1. ', '').replace('. 2. ', '. ') \
+            .replace('. 3. ', '. ').replace('. 4. ', '. ').replace('. 5. ', '. ').replace(' 2. ', '. ') \
+            .replace(' 3. ', '. ').replace(' 4. ', '. ').replace(' 5. ', '. ') \
+            .strip().lower().split('. ')
+        sent_cleaner = lambda t: re.sub('[.,?;*!%^&_+():-\[\]{}]', '', t.replace('"', '').replace('/', '')
+                                        .replace('\\', '').replace("'", '').strip().lower())
+        tokens = [sent_cleaner(sent) for sent in report_cleaner(report) if sent_cleaner(sent) != []]
+        report = ' . '.join(tokens) + ' .'
+        return report
     
+
     def __len__(self):
         return len(self.key_list)
 
@@ -275,7 +292,8 @@ class UnifiedCXRDataset(Dataset):
                 else:
                     data+= "\nThere is no previous scan available."
                 # print(data)
-                src = data.replace('  ', ' ').replace('  ', ' ').lower()
+                #src = data.replace('  ', ' ').replace('  ', ' ').lower()
+                src = self.clean_report_mimic_cxr(data)
                 # ids_list = self.tokenizer.encode(src).ids
                 text_output = self.tokenizer.encode(src, add_special_tokens=True, padding='max_length', max_length = 256, truncation = True, return_tensors='pt') #sansan
                 # # print(text_output.shape)
