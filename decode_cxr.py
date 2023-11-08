@@ -9,22 +9,29 @@ import torch
 from vae import VQGanVAE
 from helpers import str2bool
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+
+
 models = {
-    'path/to/saved_files'
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-6-CXRBERT_wo_token'
 }
 
 for infer_path in models:
-    output_path = glob(os.path.join(infer_path, 'test_output_*.pt'))[:1]
+    output_path = glob(os.path.join(infer_path, 'test_output_*.pt'))
+    output_path = [glob(os.path.join(infer_path, 'test_output_*.pt'))[-1]]
+    print(output_path)
     for output_pt_file in output_path:
         parser = argparse.ArgumentParser()
         parser.add_argument('--img_save', default=True, type=str2bool, help='')
         parser.add_argument('--save_dir', default='/path/to/decoded_imgs', type=str, help='')
         parser.add_argument('--infer_num', default=str(32), type=str, help='infer num when load eval ckpt')
-        parser.add_argument('--vqgan_model_path', default='mimiccxr_vqgan/last.ckpt', type=str)
-        parser.add_argument('--vqgan_config_path', default='mimiccxr_vqgan/2021-12-17T08-58-54-project.yaml', type=str)
+        parser.add_argument('--vqgan_model_path', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/mimic_vqgan/last.ckpt', type=str)
+        parser.add_argument('--vqgan_config_path', default='/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/mimic_vqgan/2021-12-17T08-58-54-project.yaml', type=str)
 
         args = parser.parse_args()
-
+        print(output_pt_file)
+        args.save_dir = output_pt_file[:-3]
+        print(args.save_dir)
         if args.img_save:
             os.makedirs(args.save_dir, exist_ok=True)
 

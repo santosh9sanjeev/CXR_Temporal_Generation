@@ -3,23 +3,23 @@ import time
 import subprocess
 from glob import glob
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "13"
+os.environ["CUDA_VISIBLE_DEVICES"] = "6,11,12,13"
 
 models = {
-    'ckpt/unixgen.ckpt'
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-6_debug/epoch=72-train_loss= 4.40.ckpt'
     : [
         ['fixed_each_unified', 1, 1],
 
         ['fixed_each_unified', 1, 2],
         ['fixed_each_unified', 2, 2],
 
-        ['fixed_each_unified', 1, 3],
-        ['fixed_each_unified', 2, 3],
-        ['fixed_each_unified', 3, 3],
+    #     ['fixed_each_unified', 1, 3],
+    #     ['fixed_each_unified', 2, 3],
+    #     ['fixed_each_unified', 3, 3],
     ]
 }
 
-test_meta_files = ['metadata/mimiccxr_test_sub_final.csv']
+test_meta_files = ['/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v3/test_main_file_v2.csv']
 
 for model_path, configs in models.items():
     for config in configs:
@@ -34,6 +34,7 @@ for model_path, configs in models.items():
                     'max_img_num': config[1],
                     'target_count': config[2],
                     'test_meta_file': meta_file,
+                    'n_gpus':4
                 }
                 TRAINING_CONFIG_LIST = list()
                 for (k, v) in list(TRAINING_CONFIG.items()):
@@ -45,4 +46,7 @@ for model_path, configs in models.items():
 
                 print('Training_lst:', TRAINING_CONFIG_LIST)
                 subprocess.run(['python', SRC_PATH] + TRAINING_CONFIG_LIST)
+
+                print('stopp')
                 time.sleep(10)
+                
