@@ -18,6 +18,32 @@ def eval_decorator(fn):
         return out
     return inner
 
+#####################################
+# ADAM TEMPORAL
+import torch
+import math
+import matplotlib.pyplot as plt
+
+def timestep_embedding(timesteps, dim, max_period=10000):
+    """
+    Create sinusoidal timestep embeddings.
+
+    :param timesteps: a 1-D Tensor of N indices, one per batch element.
+                      These may be fractional.
+    :param dim: the dimension of the output.
+    :param max_period: controls the minimum frequency of the embeddings.
+    :return: an [N x dim] Tensor of positional embeddings.
+    """
+    half = dim // 2
+    freqs = torch.exp(
+        -math.log(max_period) * torch.arange(start=0, end=half, dtype=torch.float32) / half
+    ).to(device=timesteps.device)
+    args = timesteps[:, None].float() * freqs[None]
+    embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
+    if dim % 2:
+        embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
+    return embedding
+#####################################
 
 class PositionWiseFeedForward(nn.Module):
     def __init__(self, dim, mult=4, dropout=0., activation=None):
@@ -201,7 +227,9 @@ class TransformerLM_unified(nn.Module):
             self.pos_emb = FixedPositionalEmbedding(dim, max_seq_len)
             # self.layer_pos_emb = FixedPositionalEmbedding(dim_head, max_seq_len)
             # ADAM
-            self.layer_pos_emb = FixedPositionalEmbedding(dim_head, max_seq_len + 1)
+            # self.layer_pos_emb = FixedPositionalEmbedding(dim_head, max_seq_len + 1)
+            # ADAM TEMPORAL
+            self.layer_pos_emb = FixedPositionalEmbedding(dim_head, 1 + max_seq_len + 1)
         elif axial_position_emb:
             axial_position_shape = default(axial_position_shape, (math.ceil(max_seq_len / 64), 64))
             self.pos_emb = AxialPositionalEmbedding(dim, axial_position_shape)
@@ -241,6 +269,9 @@ class TransformerLM_unified(nn.Module):
         b, n_txt, device = *txt.shape, txt.device
         n = n_img1 + n_txt
 
+        # ADAM TEMPORAL
+        dt_in_days = batch['dt_in_days']
+        
         imgs = [img1]
         if 'img2' in batch.keys():
             assert self.max_img_num >= 2
@@ -574,6 +605,11 @@ class TransformerLM_unified(nn.Module):
         # ADAM
         cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b = b)
         x = torch.cat((x, cls_tokens), dim=1)
+        
+        # ADAM TEMPORAL
+        # print(dt_in_days)
+        emb_time = timestep_embedding(dt_in_days, x.shape[-1])[:, None, :] # Add a pseudo axis in the middle
+        x = torch.cat((emb_time, x), dim=1)
 
         x = self.dropout(x) #sansan
 
@@ -581,6 +617,9 @@ class TransformerLM_unified(nn.Module):
         layer_pos_emb = self.layer_pos_emb(x)
         x = self.transformer(x, pos_emb=layer_pos_emb, causal=causal, condition_len=n_condition, **kwargs)  # x: [B, seq_len, dim] -> [B, seq_len, dim]
         x = self.norm(x)
+        
+        # ADAM TEMPORAL
+        x = x[:,1:] # remove the first token (dt emb)
         
         # ADAM
         x[:, -1] = self.mlp_dropout(x[:, -1])

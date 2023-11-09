@@ -16,6 +16,15 @@ from datetime import datetime
 
 random.seed(42)
 
+#########################################
+# ADAM TEMPORAL
+from datetime import date
+
+def rem_time(d):
+    s = date(d.year,d.month, d.day)
+    return s
+#########################################
+
 def datatime_conversion(studydate,studytime):
     studytime = str(studytime)
     studytime = studytime.split('.')[0]
@@ -289,8 +298,19 @@ class UnifiedCXRDataset(Dataset):
                     timediff = difference(prevstudy_timestamp, currstudy_timestamp)
                     # print('sentenceeeeeeeeeeeeeeeeeee',prevstudy_timestamp, currstudy_timestamp, timediff)
                     data += timediff
+                    
+                    # ADAM TEMPORAL
+                    dt = rem_time(currstudy_timestamp) - rem_time(prevstudy_timestamp)
+                    dt_in_days = max(1, abs(float(dt.days))) # CALCULATE SOMEHOW
+                    # print(dt_in_days, abs(float(dt.days)), currstudy_timestamp, prevstudy_timestamp)
+                    
                 else:
                     data+= "\nThere is no previous scan available."
+                    
+                    # ADAM TEMPORAL
+                    dt_in_days = -1
+                
+                
                 # print(data)
                 #src = data.replace('  ', ' ').replace('  ', ' ').lower()
                 src = self.clean_report_mimic_cxr(data)
@@ -306,7 +326,9 @@ class UnifiedCXRDataset(Dataset):
         # print(labels, type(labels))
     
         outputs = {'txt': text_output, 'modes': self.modes, 'subject_id': subject_id, 'dicom_id':dicom_id,
-                   'img_paths': img_paths, 'view_position': view_position, 'image_state': img_state, 'labels':labels, 'weights':self.weights}
+                   'img_paths': img_paths, 'view_position': view_position, 'image_state': img_state, 'labels':labels, 'weights':self.weights,
+                   'dt_in_days': dt_in_days # ADAM TEMPORAL
+                   }
 
         for i in range(self.max_img_num):
             outputs[f'img{i+1}'] = image_output[i]
