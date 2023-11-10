@@ -52,10 +52,11 @@ for infer_path in models:
                     max_img_num += 1
 
             for b in tqdm(range(bsz), desc='bsz'):
-                name_paths = row['img_paths'][b].split('|')[0].split('/')
-                name = name_paths[-4] + "_" + row['subject_ids'][b] + "_" + name_paths[-3] + "_" + name_paths[-2]
 
                 for i in range(1, max_img_num+1):
+                    name_paths = row['img_paths'][b].split('|')[i].split('/')
+                    name = name_paths[-4] + "_" + row['subject_ids'][b] + "_" + name_paths[-3] + "_" + name_paths[-2]
+
                     bsz, num_codes = row[f'GT_image{i}'].size()
 
                     GT_tensor = row[f'GT_image{i}'].reshape(-1, num_codes)[b][1:-1].unsqueeze(0)

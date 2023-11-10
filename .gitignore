@@ -11,3 +11,5 @@ __pycache__/
 biomed_VLP/
 *.pt
 full_v2/
+lightning_logs/
+*.swp

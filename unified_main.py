@@ -26,9 +26,10 @@ from unified_plmodel import TransformerLightning_unified
 import warnings
 from transformers import AutoModel, AutoTokenizer
 
+print('hiiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
 warnings.filterwarnings("ignore")
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "5,6,10,11,12,13"
+os.environ["CUDA_VISIBLE_DEVICES"] = "8,9,10,11,12,13,14"
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "12"
 
