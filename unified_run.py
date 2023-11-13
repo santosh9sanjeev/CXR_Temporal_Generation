@@ -7,7 +7,7 @@ from glob import glob
 os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4,8,15"
 
 models = {
-    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-8/epoch=06-train_loss= 1.24.ckpt'
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-9/epoch=10-train_loss= 1.28.ckpt'
     : [
         # ['fixed_each_unified', 1, 1],
 

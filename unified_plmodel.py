@@ -50,7 +50,7 @@ class TransformerLightning_unified(pl.LightningModule):
         self.pad_token_idx = pad_token_idx
         self.sos_token_idx = sos_token_idx
         self.eos_token_idx = eos_token_idx
-        self.save_dir = save_dir#'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3'#'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp_6_debug_v3/'#'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-5-CXRBERT_cls_token' #save_dir 
+        self.save_dir = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-9/'#'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp_6_debug_v3/'#'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-5-CXRBERT_cls_token' #save_dir 
         self.causal = causal_trans
         self.subs = []
 
