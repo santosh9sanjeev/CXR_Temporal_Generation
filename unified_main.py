@@ -29,9 +29,7 @@ from transformers import AutoModel, AutoTokenizer
 print('hiiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
 warnings.filterwarnings("ignore")
 
-# os.environ["CUDA_VISIBLE_DEVICES"] = "8,9,10,11,12,13,14"
-
-# os.environ["CUDA_VISIBLE_DEVICES"] = "12"
+os.environ["CUDA_VISIBLE_DEVICES"] = "6,8,9,10,11,12,13,14"
 
 import subprocess
 

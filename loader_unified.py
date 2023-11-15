@@ -253,15 +253,10 @@ class UnifiedCXRDataset(Dataset):
                 view_position.append('PAD')
                 img_state.append(curr_state)
 
-            modes = []
-            for i in range(num_img_in_subject):
-                modes.append(f'img{i + 1}')
-            modes.append('txt')
-            for i in range(num_img_in_subject, self.max_img_num):
-                modes.append(f'img{i + 1}')
+            assert num_img_in_subject == 1
+            modes = ['txt', 'img1', 'img2'] # If there is not previous image
         else:
-            modes = [f'img{i + 1}' for i in range(self.max_img_num)]
-            modes.append('txt')
+            modes = ['txt', 'img2', 'img1']
 
         # report
 
@@ -316,7 +311,7 @@ class UnifiedCXRDataset(Dataset):
         # weights = UnifiedCXRDataset.get_weights(self)
         # print(weights, type(weights))
         # print(labels, type(labels))
-    
+        # print(num_img_in_subject, modes)
         outputs = {'txt': text_output, 'modes': modes, 'subject_id': subject_id, 'dicom_id':dicom_id,
                    'img_paths': img_paths, 'view_position': view_position, 'image_state': img_state, 'labels':labels, 'weights':self.weights,
                    'dt_in_days': dt_in_days # ADAM TEMPORAL

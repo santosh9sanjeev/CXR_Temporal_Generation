@@ -250,11 +250,11 @@ class TransformerLM_unified(nn.Module):
 
         self.to_out_txt = nn.Linear(dim, num_tokens)  # if not tie_embed else None
         self.to_out_img = nn.Linear(dim, num_img_tokens)  # if not tie_embed else None
-        # self.to_out_combined_txt_img = nn.Linear(dim, (num_tokens + num_img_tokens))
-        self.to_out_combined_txt_img = nn.Sequential(
-            nn.Dropout(0.3),
-            nn.Linear(dim, (num_tokens + num_img_tokens)),
-        )
+        self.to_out_combined_txt_img = nn.Linear(dim, (num_tokens + num_img_tokens))
+        # self.to_out_combined_txt_img = nn.Sequential(
+        #     nn.Dropout(0.3),
+        #     nn.Linear(dim, (num_tokens + num_img_tokens)),
+        # )
         
         # ADAM
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))

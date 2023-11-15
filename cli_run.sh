@@ -1,0 +1,1 @@
+python unified_main.py --save_dir '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-10' --n_epochs 200 --lr 2e-4 --weight_decay 1e-6 --batch_size 6 --n_gpus 8 --max_img_num 2 --target_count 2

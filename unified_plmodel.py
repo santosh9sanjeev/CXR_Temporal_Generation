@@ -224,36 +224,36 @@ class TransformerLightning_unified(pl.LightningModule):
         max_neg_value = -torch.finfo(logit.dtype).max
         
         # ADAM UNIDIRECTIONAL
-        list_txt_logit = []
+        list_img1_logit = []
 
         for bsz in range(batch_size):
-            if np.array(modes)[:, bsz][0] == 'txt':
-                # first_modal = txt_seq_len - 1
-                # logit[bsz, :first_modal, self.num_txt_tokens:] = max_neg_value
-                # logit[bsz, first_modal:, :self.num_txt_tokens] = max_neg_value
+            if np.array(modes)[:, bsz][0] == 'img1':
                 raise ValueError
             else:
-                first_modal = img_seq_len - 1
-                if np.array(modes)[:, bsz][1] == 'txt': # i, t, i (which means no previous scan)
-                    logit[bsz, :first_modal, :self.num_txt_tokens] = max_neg_value
-                    logit[bsz, first_modal: (first_modal + txt_seq_len), self.num_txt_tokens:] = max_neg_value
-                    logit[bsz, (first_modal + txt_seq_len):, :self.num_txt_tokens] = max_neg_value
+                first_modal = txt_seq_len - 1
+                if np.array(modes)[:, bsz][1] == 'img1': # txt, img1, img2 (which means no previous scan; img2 is simply a padding)
+                    # FOR TEXT UNIDIRECTIONAL
+                    # logit[bsz, first_modal: (first_modal + txt_seq_len), self.num_txt_tokens:] = max_neg_value
+                    # list_txt_logit.append(logit[bsz:bsz+1, first_modal: (first_modal + txt_seq_len)])
                     
-                    # ADAM UNIDIRECTIONAL
-                    # list_txt_logit.append(logit[bsz, first_modal: (first_modal + txt_seq_len), :self.num_txt_tokens])
-                    list_txt_logit.append(logit[bsz:bsz+1, first_modal: (first_modal + txt_seq_len)])
-                elif np.array(modes)[:, bsz][-1] == 'txt': # i, i, t
-                    logit[bsz, :-txt_seq_len, :self.num_txt_tokens] = max_neg_value
-                    logit[bsz, -txt_seq_len:, self.num_txt_tokens:] = max_neg_value
+                    # FOR IMG1 UNIDIRECTIONAL
+                    logit[bsz, first_modal: (first_modal + img_seq_len), :self.num_txt_tokens] = max_neg_value
+                    list_img1_logit.append(logit[bsz:bsz+1, first_modal: (first_modal + img_seq_len)])
+                elif np.array(modes)[:, bsz][-1] == 'img1': # txt, img2, img1
+                    # FOR TEXT UNIDIRECTIONAL
+                    # logit[bsz, -txt_seq_len:, self.num_txt_tokens:] = max_neg_value
+                    # list_txt_logit.append(logit[bsz:bsz+1, -txt_seq_len:])
                     
-                    # ADAM UNIDIRECTIONAL
-                    # list_txt_logit.append(logit[bsz, -txt_seq_len:, :self.num_txt_tokens])
-                    list_txt_logit.append(logit[bsz:bsz+1, -txt_seq_len:])
+                    # FOR IMG1 UNDIRECTIONAL
+                    logit[bsz, -img_seq_len:, :self.num_txt_tokens] = max_neg_value
+                    list_img1_logit.append(logit[bsz:bsz+1, -img_seq_len:])
+                else:
+                    raise ValueError
         
-        logit = torch.cat(list_txt_logit, dim=0)
+        logit = torch.cat(list_img1_logit, dim=0)
         logit = logit.reshape(-1, logit.size(-1))
         
-        target = batch['txt'].reshape(-1)
+        target = batch['img1'].reshape(-1) + self.num_txt_tokens
 
         ignore_classes = torch.ones(self.num_txt_tokens + self.num_img_tokens)
         ignore_classes[1024 + self.num_txt_tokens] = 0.
@@ -310,36 +310,34 @@ class TransformerLightning_unified(pl.LightningModule):
         max_neg_value = -torch.finfo(logit.dtype).max
         
         # ADAM UNIDIRECTIONAL
-        list_txt_logit = []
+        list_img1_logit = []
 
         for bsz in range(batch_size):
-            if np.array(modes)[:, bsz][0] == 'txt':
-                # first_modal = txt_seq_len - 1
-                # logit[bsz, :first_modal, self.num_txt_tokens:] = max_neg_value
-                # logit[bsz, first_modal:, :self.num_txt_tokens] = max_neg_value
+            if np.array(modes)[:, bsz][0] == 'img1':
                 raise ValueError
             else:
-                first_modal = img_seq_len - 1
-                if np.array(modes)[:, bsz][1] == 'txt': # i, t, i (which means no previous scan)
-                    logit[bsz, :first_modal, :self.num_txt_tokens] = max_neg_value
-                    logit[bsz, first_modal: (first_modal + txt_seq_len), self.num_txt_tokens:] = max_neg_value
-                    logit[bsz, (first_modal + txt_seq_len):, :self.num_txt_tokens] = max_neg_value
+                first_modal = txt_seq_len - 1
+                if np.array(modes)[:, bsz][1] == 'img1': # txt, img1, img2 (which means no previous scan; img2 is simply a padding)
+                    # FOR TEXT UNIDIRECTIONAL
+                    # logit[bsz, first_modal: (first_modal + txt_seq_len), self.num_txt_tokens:] = max_neg_value
+                    # list_txt_logit.append(logit[bsz:bsz+1, first_modal: (first_modal + txt_seq_len)])
                     
-                    # ADAM UNIDIRECTIONAL
-                    # list_txt_logit.append(logit[bsz, first_modal: (first_modal + txt_seq_len), :self.num_txt_tokens])
-                    list_txt_logit.append(logit[bsz:bsz+1, first_modal: (first_modal + txt_seq_len)])
-                elif np.array(modes)[:, bsz][-1] == 'txt': # i, i, t
-                    logit[bsz, :-txt_seq_len, :self.num_txt_tokens] = max_neg_value
-                    logit[bsz, -txt_seq_len:, self.num_txt_tokens:] = max_neg_value
+                    # FOR IMG1 UNIDIRECTIONAL
+                    logit[bsz, first_modal: (first_modal + img_seq_len), :self.num_txt_tokens] = max_neg_value
+                    list_img1_logit.append(logit[bsz:bsz+1, first_modal: (first_modal + img_seq_len)])
+                elif np.array(modes)[:, bsz][-1] == 'img1': # txt, img2, img1
+                    # FOR TEXT UNIDIRECTIONAL
+                    # logit[bsz, -txt_seq_len:, self.num_txt_tokens:] = max_neg_value
+                    # list_txt_logit.append(logit[bsz:bsz+1, -txt_seq_len:])
                     
-                    # ADAM UNIDIRECTIONAL
-                    # list_txt_logit.append(logit[bsz, -txt_seq_len:, :self.num_txt_tokens])
-                    list_txt_logit.append(logit[bsz:bsz+1, -txt_seq_len:])
+                    # FOR IMG1 UNDIRECTIONAL
+                    logit[bsz, -img_seq_len:, :self.num_txt_tokens] = max_neg_value
+                    list_img1_logit.append(logit[bsz:bsz+1, -img_seq_len:])
         
-        logit = torch.cat(list_txt_logit, dim=0)
+        logit = torch.cat(list_img1_logit, dim=0)
         logit = logit.reshape(-1, logit.size(-1))
         
-        target = batch['txt'].reshape(-1)
+        target = batch['img1'].reshape(-1) + self.num_txt_tokens
 
         ignore_classes = torch.ones(self.num_txt_tokens + self.num_img_tokens)
         ignore_classes[1024 + self.num_txt_tokens] = 0.
@@ -421,13 +419,13 @@ class TransformerLightning_unified(pl.LightningModule):
         self.transformerLM_unified.max_img_num = self.max_img_num
 
         if self.max_img_num == 1:
-            modes_txt = [['img1'], ['txt']]
+            modes_img1 = [['txt'], ['img1']]
             # modes_img1 = [['txt'], ['img1']]
 
         elif self.max_img_num == 2:
             n += batch['img2'].shape[1]
 
-            modes_txt = [['img1'], ['img2'], ['txt']]#random.sample([[['img1'], ['img2'], ['txt']], [['img2'], ['img1'], ['txt']]], 1)[0]
+            modes_img1 = [['txt'], ['img2'], ['img1']]#random.sample([[['img1'], ['img2'], ['txt']], [['img2'], ['img1'], ['txt']]], 1)[0]
             # modes_img1 = random.sample([[['img2'], ['txt'], ['img1']], [['txt'], ['img2'], ['img1']]], 1)[0]
             # modes_img2 = random.sample([[['img1'], ['txt'], ['img2']], [['txt'], ['img1'], ['img2']]], 1)[0]
 
@@ -444,40 +442,40 @@ class TransformerLightning_unified(pl.LightningModule):
             # modes_img3.append(['img3'])
 
         # generate texts
-        print('-'*30)
-        print('generate txt')
-        batch['modes'] = modes_txt
+        # print('-'*30)
+        # print('generate txt')
+        # batch['modes'] = modes_txt
 
-        gen_texts = self.transformerLM_unified.generate_texts(
-            batch,
-            sos_token_idx=self.sos_token_idx,
-            eos_token_idx=self.eos_token_idx,
-            pad_token_idx=self.pad_token_idx,
-            filter_logits_fn='top_p',
-            filter_thres=0.9,
-            temperature=0.7,
-            causal=self.causal
-        )
-
-        # generate img1
-        print('-'*30)
-        print('generate img1')
-        # batch['modes'] = modes_img1
-        # import copy
-        # tmp_batch_view = copy.deepcopy(batch['view_position'])
-        # batch['view_position'][-1], batch['view_position'][0] = batch['view_position'][0], batch['view_position'][-1]
-        # tmp_batch_image_state = copy.deepcopy(batch['image_state'])
-        # batch['image_state'][-1], batch['image_state'][0] = batch['image_state'][0], batch['image_state'][-1]
-
-        # gen_images1 = self.transformerLM_unified.generate_image(
+        # gen_texts = self.transformerLM_unified.generate_texts(
         #     batch,
+        #     sos_token_idx=self.sos_token_idx,
+        #     eos_token_idx=self.eos_token_idx,
+        #     pad_token_idx=self.pad_token_idx,
         #     filter_logits_fn='top_p',
         #     filter_thres=0.9,
         #     temperature=0.7,
         #     causal=self.causal
         # )
-        # batch['view_position'] = copy.deepcopy(tmp_batch_view)
-        # batch['image_state']   = copy.deepcopy(tmp_batch_image_state)
+
+        # generate img1
+        print('-'*30)
+        print('generate img1')
+        batch['modes'] = modes_img1
+        import copy
+        tmp_batch_view = copy.deepcopy(batch['view_position'])
+        batch['view_position'][-1], batch['view_position'][0] = batch['view_position'][0], batch['view_position'][-1]
+        tmp_batch_image_state = copy.deepcopy(batch['image_state'])
+        batch['image_state'][-1], batch['image_state'][0] = batch['image_state'][0], batch['image_state'][-1]
+
+        gen_images1 = self.transformerLM_unified.generate_image(
+            batch,
+            filter_logits_fn='top_p',
+            filter_thres=0.9,
+            temperature=0.7,
+            causal=self.causal
+        )
+        batch['view_position'] = copy.deepcopy(tmp_batch_view)
+        batch['image_state']   = copy.deepcopy(tmp_batch_image_state)
 
 
         # if 'img2' in batch.keys():
@@ -518,13 +516,13 @@ class TransformerLightning_unified(pl.LightningModule):
 
         output = {
             'subject_ids':subject_ids,
-            'GT_text': txt,
-            'gen_text': gen_texts,
-            # 'GT_image1': img1,
-            # 'gen_image1': gen_images1,
+            # 'GT_text': txt,
+            # 'gen_text': gen_texts,
+            'GT_image1': img1,
+            'gen_image1': gen_images1,
             'img_paths': img_paths,
-            'modes_txt': modes_txt,
-            # 'modes_img1': modes_img1,
+            # 'modes_txt': modes_txt,
+            'modes_img1': modes_img1,
             'view': view,
             'img_state': img_state,
         }
