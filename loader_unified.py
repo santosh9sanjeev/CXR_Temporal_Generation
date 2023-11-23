@@ -265,11 +265,12 @@ class UnifiedCXRDataset(Dataset):
             self.modes = ['txt']
             for i in range(num_img_in_subject):
                 self.modes.append(f'img{i + 1}')
-            random.shuffle(self.modes)
+            # random.shuffle(self.modes)
             for i in range(num_img_in_subject, self.max_img_num):
                 self.modes.append(f'img{i + 1}')
         else:
-            random.shuffle(self.modes)
+            # random.shuffle(self.modes)
+            pass
 
         # report
 

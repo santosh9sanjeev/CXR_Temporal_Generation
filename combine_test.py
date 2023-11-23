@@ -3,25 +3,25 @@ import os
 from nltk.translate.bleu_score import corpus_bleu
 import csv
 # /nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3/cuda:0_test_output_epoch=122_1_of_1_test_main_file_v2.pt
-# file_list = [
-#     '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3/cuda:0_test_output_epoch=122_2_of_2_test_main_file_v2.pt',
-#     '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3/cuda:1_test_output_epoch=122_2_of_2_test_main_file_v2.pt',
-#     '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3/cuda:2_test_output_epoch=122_2_of_2_test_main_file_v2.pt',
-#     '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3/cuda:3_test_output_epoch=122_2_of_2_test_main_file_v2.pt',
-#     '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3/cuda:4_test_output_epoch=122_2_of_2_test_main_file_v2.pt',
-#     '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3/cuda:5_test_output_epoch=122_2_of_2_test_main_file_v2.pt',
-# ]
+file_list = [
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/cuda:0_test_output_epoch=140_1_of_2_test_main_file_v2.pt',
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/cuda:1_test_output_epoch=140_1_of_2_test_main_file_v2.pt',
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/cuda:2_test_output_epoch=140_1_of_2_test_main_file_v2.pt',
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/cuda:3_test_output_epoch=140_1_of_2_test_main_file_v2.pt',
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/cuda:4_test_output_epoch=140_1_of_2_test_main_file_v2.pt',
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/cuda:5_test_output_epoch=140_1_of_2_test_main_file_v2.pt',
 
-# list_pt_files = []
-# for path in file_list:
-#     tmp = torch.load(path, map_location='cpu')
-#     list_pt_files.extend(tmp)
-# torch.save(list_pt_files, '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3/full_2_2.pt')
+]
 
-ckpt_path = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3/full_2_2.pt'
+list_pt_files = []
+for path in file_list:
+    tmp = torch.load(path, map_location='cpu')
+    list_pt_files.extend(tmp)
+torch.save(list_pt_files, '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/test_output_epoch=140_1_of_2_test_main_file_v2.pt')
+ckpt_path = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/test_output_epoch=140_1_of_2_test_main_file_v2.pt'
 # gathered_test_step_outputs = # GATHER FROM SOMEWHERE
 # max_img_num = # DEFINE HERE
-save_dir = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3/'
+save_dir = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/'
 test_meta_file_name = 'test_main_file_v2'
 
 

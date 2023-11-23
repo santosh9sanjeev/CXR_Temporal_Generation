@@ -166,6 +166,12 @@ class FastAttention(nn.Module):
 
     def forward(self, q, k, v, condition_len=0):
         device = q.device
+        
+        ##################################################
+        # ATTN MAP
+        attn_scores = torch.matmul(q[:,:,-1:], k.transpose(-1,-2)) / math.sqrt(q.shape[-1])
+        attn_probs = torch.nn.Softmax(dim=-1)(attn_scores)
+        ##################################################
 
         if self.no_projection:
             q = q.softmax(dim=-1)
@@ -180,12 +186,17 @@ class FastAttention(nn.Module):
             create_kernel = partial(softmax_kernel, projection_matrix=self.projection_matrix, device=device)
             q = create_kernel(q, is_query=True)
             k = create_kernel(k, is_query=False)
-
+        # breakpoint()
         attn_fn = self.causal_linear_fn
         out = attn_fn(q, k, v, condition_len=condition_len)
-
+        # breakpoint()
         out = out.to(device)
-        return out  # [B, global_head, seq_len, dim_head]
+        
+        ##################################################
+        # ATTN MAP
+        # return out  # [B, global_head, seq_len, dim_head]
+        return out, attn_probs
+        ##################################################
 
 
 class FAVORAttention(nn.Module):
@@ -244,11 +255,21 @@ class FAVORAttention(nn.Module):
             if exists(pos_emb):
                 q, k = apply_rotary_pos_emb(q, k, pos_emb)
 
-        out = self.fast_attention(q, k, v, condition_len=condition_len)  # [B, global_head, seq_len, dim_head]
+        ###################
+        # ATTN MAP
+        # out = self.fast_attention(q, k, v, condition_len=condition_len)  # [B, global_head, seq_len, dim_head]
+        # out = rearrange(out, 'b h n d -> b n (h d)')  # -> [B, seq_len, inner_dim]
+
+        # out = self.to_output(out)  # -> [B, seq_len, dim]
+        # return self.dropout(out)  # -> [B, seq_len, dim]
+    
+        out, attn_probs = self.fast_attention(q, k, v, condition_len=condition_len)  # [B, global_head, seq_len, dim_head]
         out = rearrange(out, 'b h n d -> b n (h d)')  # -> [B, seq_len, inner_dim]
 
         out = self.to_output(out)  # -> [B, seq_len, dim]
-        return self.dropout(out)  # -> [B, seq_len, dim]
+        return self.dropout(out), attn_probs  # -> [B, seq_len, dim]
+        ###################
+    
 
 
 class ProjectionUpdater(nn.Module):

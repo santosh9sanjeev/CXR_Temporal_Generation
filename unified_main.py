@@ -28,7 +28,7 @@ from transformers import AutoModel, AutoTokenizer
 
 warnings.filterwarnings("ignore")
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "5,6,10,11,12,13"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "5,6,10,11,12,13"
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "12"
 

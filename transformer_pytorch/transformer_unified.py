@@ -6,6 +6,27 @@ from transformer_pytorch.model_utils import *
 from axial_positional_embedding import AxialPositionalEmbedding
 from transformer_pytorch.FAVOR_unified import FAVORAttention, ProjectionUpdater
 
+##################################################
+# ATTN MAP
+class AdamSequentialSequence(nn.Module):
+    def __init__(self, layers, args_route={}):
+        super().__init__()
+        assert all(len(route) == len(layers) for route in args_route.values()), 'each argument route map must have the same depth as the number of sequential layers'
+        self.layers = layers
+        self.args_route = args_route
+
+    def forward(self, x, **kwargs): # x: tensor[B, seq_len, dim]   kwargs: {'pos_emb': tensor[1, seq_len, dim_head], 'mask': tensor[B, seq_len]}
+        args = route_args(self.args_route, kwargs, len(self.layers))
+        layers_and_args = list(zip(self.layers, args))
+
+        for (f, g), (f_args, g_args) in layers_and_args:
+            # x = x + f(x, **f_args)
+            x_buf, attn_probs = f(x, **f_args)
+            x = x + x_buf
+            x = x + g(x, **g_args)
+        return x, attn_probs
+##################################################
+
 # ADAM
 from einops import rearrange, repeat
 
@@ -124,7 +145,9 @@ class Transformer(nn.Module):
         route_context = ((False, False), (True, False)) * depth
         attn_route_map = {'pad_mask': route_attn, 'pos_emb': route_attn, 'causal': route_attn, 'condition_len': route_attn}
         context_route_map = {'context': route_context, 'context_mask': route_context} if cross_attend else {}
-        self.net = execute_type(layers, args_route={**attn_route_map, **context_route_map})
+        # ATTN MAP
+        # self.net = execute_type(layers, args_route={**attn_route_map, **context_route_map})
+        self.net = AdamSequentialSequence(layers, args_route={**attn_route_map, **context_route_map})
 
         if FAVOR:
             self.auto_check_redraw = auto_check_redraw  # auto_check_redraw = True
@@ -615,7 +638,7 @@ class TransformerLM_unified(nn.Module):
 
         # performer layers
         layer_pos_emb = self.layer_pos_emb(x)
-        x = self.transformer(x, pos_emb=layer_pos_emb, causal=causal, condition_len=n_condition, **kwargs)  # x: [B, seq_len, dim] -> [B, seq_len, dim]
+        x, attn_probs = self.transformer(x, pos_emb=layer_pos_emb, causal=causal, condition_len=n_condition, **kwargs)  # x: [B, seq_len, dim] -> [B, seq_len, dim]
         x = self.norm(x)
         
         # ADAM TEMPORAL
@@ -633,7 +656,7 @@ class TransformerLM_unified(nn.Module):
         if self.attn_type in ['all_modality_causal_noncuda', 'all_modality_causal_cuda']:
             # return self.to_out_combined_txt_img(x)
             # ADAM
-            return self.to_out_combined_txt_img(x), cls_logits
+            return self.to_out_combined_txt_img(x), cls_logits, attn_probs
         # return x @ self.token_emb.weight.t()
 
     # !# Generate Report
