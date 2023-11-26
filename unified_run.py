@@ -4,11 +4,11 @@ import time
 import subprocess
 from glob import glob
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4,8,15"
-# os.environ["CUDA_VISIBLE_DEVICES"] = "10"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4,8,15"
+os.environ["CUDA_VISIBLE_DEVICES"] = "10"
 
 models = {
-    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporal_token_129/epoch=129-train_loss= 4.41.ckpt'
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/epoch=140-train_loss= 4.39.ckpt'
     : [
         # ['fixed_each_unified', 1, 1],
 
@@ -36,8 +36,8 @@ for model_path, configs in models.items():
                     'max_img_num': config[1],
                     'target_count': config[2],
                     'test_meta_file': meta_file,
-                    'n_gpus':6,
-                    # 'n_gpus': 1,
+                    # 'n_gpus':6,
+                    'n_gpus': 1,
                 }
                 TRAINING_CONFIG_LIST = list()
                 for (k, v) in list(TRAINING_CONFIG.items()):
