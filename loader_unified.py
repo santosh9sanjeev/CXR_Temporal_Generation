@@ -217,6 +217,7 @@ class UnifiedCXRDataset(Dataset):
             image_indices = self.indices_dict[dicom_id].copy()  # indices list
             if curr_state == '1' and ViewPosition == 'AP':
                 rs = self.rd2.loc[(self.rd2['dicom_id'] == str(dicom_id)) & (self.rd2['subject_id'] == str(subject_id)) & (self.rd2['study_id']==int(studyid))]
+                # print(rs.values)
                 rs1 = rs.values.tolist()[0]
                 nr1, nr2, nr3, nr4, Atelectasis, Cardiomegaly, Consolidation, Edema, Enlarged_Cardiomediastinum, Fracture, Lung_Lesion, Lung_Opacity, No_Finding, Pleural_Effusion, Pleural_Other, Pneumonia, Pneumothorax, Support_Devices, nr5, nr6 = [rs1[i] for i in range(len(rs.axes[1]))] #santosh
                 if No_Finding == 1: #sansan
@@ -333,6 +334,8 @@ class UnifiedCXRDataset(Dataset):
 
         for i in range(self.max_img_num):
             outputs[f'img{i+1}'] = image_output[i]
+        # print(outputs.keys())
+        # breakpoint()
         return outputs
     #     self.dict_by_studyid = defaultdict(list)
 

@@ -12,8 +12,8 @@ models = {
     : [
         # ['fixed_each_unified', 1, 1],
 
-        # ['fixed_each_unified', 1, 2],
-        ['fixed_each_unified', 2, 2],
+        ['fixed_each_unified', 1, 2],
+        # ['fixed_each_unified', 2, 2],
 
     #     ['fixed_each_unified', 1, 3],
     #     ['fixed_each_unified', 2, 3],
@@ -22,7 +22,7 @@ models = {
 }
 
 test_meta_files = ['/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v3/test_main_file_v2.csv']
-
+test_label_files = ['/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/data/metadata_v3/test_labels_file_v2.csv']
 for model_path, configs in models.items():
     for config in configs:
         for ckpt in [model_path]:
@@ -36,6 +36,7 @@ for model_path, configs in models.items():
                     'max_img_num': config[1],
                     'target_count': config[2],
                     'test_meta_file': meta_file,
+                    'test_label_file':test_label_files[0],
                     # 'n_gpus':6,
                     'n_gpus': 1,
                 }

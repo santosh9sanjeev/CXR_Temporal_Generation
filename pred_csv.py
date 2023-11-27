@@ -5,15 +5,15 @@ import os
 import pandas as pd
 class_token = True
 if class_token==True:
-    path = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/UniXGen/attention_map_Test/'
-    x = torch.load('/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/UniXGen/attention_map_Test/cuda:0_test_output_epoch=140_2_of_2_test_main_file_v2.pt')
+    path = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/UniXGen/test_classifier/cuda:0_test_output_epoch=140_1_of_2_test_main_file_v2.pt'
+    x = torch.load('/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/UniXGen/test_classifier/cuda:0_test_output_epoch=140_1_of_2_test_main_file_v2.pt')
 
 else:
     path = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/UniXGen/attn_map_test_v2/'
     x = torch.load('/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/UniXGen/attn_map_test_v2/cuda:0_test_output_epoch=140_2_of_2_test_main_file_v2.pt')
 
 bs = len(x)
-
+print(len(x),len(x[0]))
 preds = []
 study_ids = []
 subject_ids = []
@@ -21,14 +21,14 @@ dicom_ids = []
 for i in range(bs):
     ls = list(x[i]['cls_logits'].to('cpu'))
     ls1 = [tensor.tolist() for tensor in ls]
-    print(i)
     if i == bs-1:
         batch_size = 2
     else:
-        batch_size=6
+        batch_size=2
     for j in range(batch_size):
+        print(j)
         cls_vals = ls1[j]
-        actual_path = x[i]['img_paths'][j].split('|')[1]
+        actual_path = x[i]['img_paths'][j].split('|')[0]
         var = actual_path.split('/')
         dicom_id = var[-1][:-4]
         subject_id = x[i]['subject_ids'][j]
@@ -65,6 +65,6 @@ for i, disease in enumerate(disease_classes):
 
 # Create the DataFrame
 df = pd.DataFrame(data, columns=columns + disease_classes)
-df.to_csv('/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/UniXGen/classifier_csvs/multimodal_validate.csv')
+df.to_csv('/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/UniXGen/classifier_csvs/test_1_2.csv')
 # Display the DataFrame
 print(df)

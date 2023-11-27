@@ -4,12 +4,12 @@ from nltk.translate.bleu_score import corpus_bleu
 import csv
 # /nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3/cuda:0_test_output_epoch=122_1_of_1_test_main_file_v2.pt
 file_list = [
-    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/cuda:0_test_output_epoch=140_1_of_2_test_main_file_v2.pt',
-    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/cuda:1_test_output_epoch=140_1_of_2_test_main_file_v2.pt',
-    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/cuda:2_test_output_epoch=140_1_of_2_test_main_file_v2.pt',
-    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/cuda:3_test_output_epoch=140_1_of_2_test_main_file_v2.pt',
-    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/cuda:4_test_output_epoch=140_1_of_2_test_main_file_v2.pt',
-    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/cuda:5_test_output_epoch=140_1_of_2_test_main_file_v2.pt',
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/bbpe_tokeniser/cuda:0_test_output_epoch=110_2_of_2_test_main_file_v2.pt',
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/bbpe_tokeniser/cuda:1_test_output_epoch=110_2_of_2_test_main_file_v2.pt',
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/bbpe_tokeniser/cuda:2_test_output_epoch=110_2_of_2_test_main_file_v2.pt',
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/bbpe_tokeniser/cuda:3_test_output_epoch=110_2_of_2_test_main_file_v2.pt',
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/bbpe_tokeniser/cuda:4_test_output_epoch=110_2_of_2_test_main_file_v2.pt',
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/bbpe_tokeniser/cuda:5_test_output_epoch=110_2_of_2_test_main_file_v2.pt',
 
 ]
 
@@ -17,11 +17,11 @@ list_pt_files = []
 for path in file_list:
     tmp = torch.load(path, map_location='cpu')
     list_pt_files.extend(tmp)
-torch.save(list_pt_files, '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/test_output_epoch=140_1_of_2_test_main_file_v2.pt')
-ckpt_path = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/test_output_epoch=140_1_of_2_test_main_file_v2.pt'
+torch.save(list_pt_files, '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/bbpe_tokeniser/test_output_epoch=110_2_of_2_test_main_file_v2.pt')
+ckpt_path = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/bbpe_tokeniser/test_output_epoch=110_2_of_2_test_main_file_v2.pt'
 # gathered_test_step_outputs = # GATHER FROM SOMEWHERE
 # max_img_num = # DEFINE HERE
-save_dir = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/'
+save_dir = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/bbpe_tokeniser/'
 test_meta_file_name = 'test_main_file_v2'
 
 
@@ -30,14 +30,26 @@ print(f"after gather, len = {len(gathered_test_step_outputs)}")
 # print('test_epoch_After',len(gathered_test_step_outputs))
 # print(gathered_test_step_outputs)
 subs = []
-url = "microsoft/BiomedVLP-CXR-BERT-specialized"
-cache_direc = "./biomed_VLP/"
+# url = "microsoft/BiomedVLP-CXR-BERT-specialized"
+# cache_direc = "./biomed_VLP/"
 
-from transformers import AutoModel, AutoTokenizer
-from tokenizers.processors import BertProcessing
+# from transformers import AutoModel, AutoTokenizer
+# from tokenizers.processors import BertProcessing
 # tokenizer = ByteLevelBPETokenizer('BBPE_tokenizer/vocab.json', 'BBPE_tokenizer/merges.txt')
-tokenizer = AutoTokenizer.from_pretrained(url, trust_remote_code=True, cache_dir = cache_direc)
-tokenizer.add_special_tokens({"additional_special_tokens":["[PAD]", "[CLS]", "[SEP]", "[MASK]"]})
+# tokenizer = AutoTokenizer.from_pretrained(url, trust_remote_code=True, cache_dir = cache_direc)
+# tokenizer.add_special_tokens({"additional_special_tokens":["[PAD]", "[CLS]", "[SEP]", "[MASK]"]})
+from tokenizers import ByteLevelBPETokenizer
+# # from transformers import AutoModel, AutoTokenizer
+from tokenizers.processors import BertProcessing
+tokenizer = ByteLevelBPETokenizer('BBPE_tokenizer/vocab.json', 'BBPE_tokenizer/merges.txt')
+# # tokenizer = AutoTokenizer.from_pretrained(url, trust_remote_code=True, cache_dir = cache_direc)
+tokenizer.add_special_tokens(["[PAD]", "[SOS]", "[EOS]", "[SEP]", "[MASK]"])
+tokenizer._tokenizer.post_processor = BertProcessing(
+    ("[EOS]", tokenizer.token_to_id("[EOS]")),
+    ("[SOS]", tokenizer.token_to_id("[SOS]")),
+)
+tokenizer.enable_truncation(max_length=256)
+tokenizer.enable_padding(pad_id=tokenizer.token_to_id("[PAD]"), pad_token="[PAD]", length=256)
 
 
 img_paths = gathered_test_step_outputs[0]['img_paths']
@@ -110,3 +122,6 @@ f_gen.close()
 f_img.close()
 print("GEN_reports_test saved.")
 print(f'\n\n')
+
+
+
