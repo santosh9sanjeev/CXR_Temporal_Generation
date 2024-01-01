@@ -4,10 +4,10 @@ import time
 import subprocess
 from glob import glob
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "6,5,10,11,12,13"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4,8,15"
 
 models = {
-    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-5-CXRBERT_cls_token/epoch=122-train_loss= 4.43.ckpt'
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporal_token_129/epoch=129-train_loss= 4.41.ckpt'
     : [
         # ['fixed_each_unified', 1, 1],
 

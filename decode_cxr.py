@@ -9,7 +9,7 @@ import torch
 from vae import VQGanVAE
 from helpers import str2bool
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "12"
+os.environ["CUDA_VISIBLE_DEVICES"] = "15"
 
 
 models = {
@@ -17,7 +17,7 @@ models = {
     #'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3/full.pt'
     # '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-6-CXRBERT_wo_token/test_output_epoch=72_1_of_2_test_main_file_v2.pt',
     # '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3/full_2_2.pt'
-    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3/full_1_2.pt'
+    '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/test_output_epoch=140_1_of_2_test_main_file_v2.pt'
 }
 
 for infer_path in models:
@@ -52,28 +52,36 @@ for infer_path in models:
                     max_img_num += 1
 
             for b in tqdm(range(bsz), desc='bsz'):
-                name_paths = row['img_paths'][b].split('|')[0].split('/')
-                name = name_paths[-4] + "_" + row['subject_ids'][b] + "_" + name_paths[-3] + "_" + name_paths[-2]
+                    name_paths = row['img_paths'][b].split('|')[0].split('/')
+                    name = name_paths[-4] + "_" + row['subject_ids'][b] + "_" + name_paths[-3] + "_" + name_paths[-2]
+                    
+                    for i in range(1,max_img_num+1):
+                    #     # print(name)
+                    #     if i == 1:
+                    #         name_paths = row['img_paths'][b].split('|')[1].split('/')
+                    #         name = name_paths[-4] + "_" + row['subject_ids'][b] + "_" + name_paths[-3] + "_" + name_paths[-2]
+                    #     else:
+                    #         name_paths = row['img_paths'][b].split('|')[0].split('/')
+                    #         name = name_paths[-4] + "_" + row['subject_ids'][b] + "_" + name_paths[-3] + "_" + name_paths[-2]
 
-                for i in range(1, max_img_num+1):
-                    bsz, num_codes = row[f'GT_image{i}'].size()
+                        bsz, num_codes = row[f'GT_image{i}'].size()
 
-                    GT_tensor = row[f'GT_image{i}'].reshape(-1, num_codes)[b][1:-1].unsqueeze(0)
-                    gen_tensor = row[f'gen_image{i}'].reshape(-1, num_codes)[b][1:-1].unsqueeze(0)
+                        GT_tensor = row[f'GT_image{i}'].reshape(-1, num_codes)[b][1:-1].unsqueeze(0)
+                        gen_tensor = row[f'gen_image{i}'].reshape(-1, num_codes)[b][1:-1].unsqueeze(0)
 
-                    GT_img1 = vae.decode(GT_tensor.to('cuda'))
-                    torch.cuda.empty_cache()
-                    gen_img1 = vae.decode(gen_tensor.to('cuda'))
-                    torch.cuda.empty_cache()
+                        GT_img1 = vae.decode(GT_tensor.to('cuda'))
+                        torch.cuda.empty_cache()
+                        gen_img1 = vae.decode(gen_tensor.to('cuda'))
+                        torch.cuda.empty_cache()
 
-                    if args.img_save:
-                        GT_img1 = GT_img1[0].permute(1, 2, 0).detach().cpu().numpy()
-                        gen_img1 = gen_img1[0].permute(1, 2, 0).detach().cpu().numpy()
-                        plt.imsave(os.path.join(args.save_dir, name + f'_gen_img{i}.jpeg'), gen_img1)
-                        plt.imsave(os.path.join(args.save_dir, name + f'_GT_img{i}.jpeg'), GT_img1)
-                    del GT_img1
-                    del gen_img1
-                    torch.cuda.empty_cache()
+                        if args.img_save:
+                            GT_img1 = GT_img1[0].permute(1, 2, 0).detach().cpu().numpy()
+                            gen_img1 = gen_img1[0].permute(1, 2, 0).detach().cpu().numpy()
+                            plt.imsave(os.path.join(args.save_dir, name + f'_gen_img{i}.jpeg'), gen_img1)
+                            plt.imsave(os.path.join(args.save_dir, name + f'_GT_img{i}.jpeg'), GT_img1)
+                        del GT_img1
+                        del gen_img1
+                        torch.cuda.empty_cache()
 
         if args.img_save:
             print("\n >>> image saving done!")
