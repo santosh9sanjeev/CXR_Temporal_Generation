@@ -21,7 +21,7 @@ from transformers.optimization import get_cosine_schedule_with_warmup
 random.seed(42)
 import torch.distributed as dist
 ## in lightning module
-
+import pdb
 cache_direc = "./biomed_VLP/"
 
 # Load the model and tokenizer
@@ -50,12 +50,10 @@ class TransformerLightning_unified(pl.LightningModule):
         self.pad_token_idx = pad_token_idx
         self.sos_token_idx = sos_token_idx
         self.eos_token_idx = eos_token_idx
-        self.save_dir = '/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/UniXGen/attention_map_Test/'#'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/'#save_dir#'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3'#'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp_6_debug_v3/'#'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-5-CXRBERT_cls_token' #save_dir 
+        self.save_dir = '/share/ssddata/santosh_models/data_from_G42/temporal_project/final_data/CVPR/temporal_project/trained_models/testing_before_jan24' #save_dir#'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/UniXGen/attention_map_Test/'#'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/temporaltoken_v2/'#save_dir#'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/exp-6_debug_v3'#'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp_6_debug_v3/'#'/nfs/users/ext_ibrahim.almakky/Santosh/CVPR/temporal_project/trained_models/exp-5-CXRBERT_cls_token' #save_dir 
         self.causal = causal_trans
         self.subs = []
-
         self.save_hyperparameters(ignore=['tokenizer'])
-
         self.task_outputs={}
         self.task_targets={}
         
@@ -421,85 +419,84 @@ class TransformerLightning_unified(pl.LightningModule):
         n = img1.shape[1] + txt.shape[1]
         self.transformerLM_unified.max_img_num = self.max_img_num
 
-        # if self.max_img_num == 1:
-        #     modes_img1 = [['txt'], ['img1']]
-        #     # modes_img1 = [['txt'], ['img1']]
+        if self.max_img_num == 1:
+            modes_txt = [['img1'], ['txt']]
+            modes_img1 = [['txt'], ['img1']]
 
-        if self.max_img_num == 2:
+        elif self.max_img_num == 2:
             n += batch['img2'].shape[1]
 
-            # modes_img1 = [['txt'], ['img2'], ['img1']]
-            #random.sample([[['img1'], ['img2'], ['txt']], [['img2'], ['img1'], ['txt']]], 1)[0]
-            # modes_img1 = random.sample([[['img2'], ['txt'], ['img1']], [['txt'], ['img2'], ['img1']]], 1)[0]
-            # modes_img2 = random.sample([[['img1'], ['txt'], ['img2']], [['txt'], ['img1'], ['img2']]], 1)[0]
-        logit, cls_logit = self(batch)
-        # elif self.max_img_num == 3:
-        #     n += (batch['img2'].shape[1] + batch['img3'].shape[1])
+            modes_txt = random.sample([[['img1'], ['img2'], ['txt']], [['img2'], ['img1'], ['txt']]], 1)[0]
+            modes_img1 = random.sample([[['img2'], ['txt'], ['img1']], [['txt'], ['img2'], ['img1']]], 1)[0]
+            modes_img2 = random.sample([[['img1'], ['txt'], ['img2']], [['txt'], ['img1'], ['img2']]], 1)[0]
 
-            # modes_txt = random.sample([['img1'], ['img2'], ['img3']], 3)
-            # modes_txt.append(['txt'])
-            # modes_img1 = random.sample([['txt'], ['img2'], ['img3']], 3)
-            # modes_img1.append(['img1'])
-            # modes_img2 = random.sample([['img1'], ['txt'], ['img3']], 3)
-            # modes_img2.append(['img2'])
-            # modes_img3 = random.sample([['img1'], ['img2'], ['txt']], 3)
-            # modes_img3.append(['img3'])
+        elif self.max_img_num == 3:
+            n += (batch['img2'].shape[1] + batch['img3'].shape[1])
+
+            modes_txt = random.sample([['img1'], ['img2'], ['img3']], 3)
+            modes_txt.append(['txt'])
+            modes_img1 = random.sample([['txt'], ['img2'], ['img3']], 3)
+            modes_img1.append(['img1'])
+            modes_img2 = random.sample([['img1'], ['txt'], ['img3']], 3)
+            modes_img2.append(['img2'])
+            modes_img3 = random.sample([['img1'], ['img2'], ['txt']], 3)
+            modes_img3.append(['img3'])
 
         # generate texts
-        # print('-'*30)
-        # print('generate txt')
-        # batch['modes'] = modes_txt
+        print('-'*30)
+        print('generate txt')
+        batch['modes'] = modes_txt
 
-        # gen_texts = self.transformerLM_unified.generate_texts(
-        #     batch,
-        #     sos_token_idx=self.sos_token_idx,
-        #     eos_token_idx=self.eos_token_idx,
-        #     pad_token_idx=self.pad_token_idx,
-        #     filter_logits_fn='top_p',
-        #     filter_thres=0.9,
-        #     temperature=0.7,
-        #     causal=self.causal
-        # )
+        gen_texts = self.transformerLM_unified.generate_texts(
+            batch,
+            sos_token_idx=self.sos_token_idx,
+            eos_token_idx=self.eos_token_idx,
+            pad_token_idx=self.pad_token_idx,
+            filter_logits_fn='top_p',
+            filter_thres=0.9,
+            temperature=0.7,
+            causal=self.causal
+        )
 
         # generate img1
-        # print('-'*30)
-        # print('generate img1')
-        # batch['modes'] = modes_img1
-        # import copy
-        # tmp_batch_view = copy.deepcopy(batch['view_position'])
-        # batch['view_position'][-1], batch['view_position'][0] = batch['view_position'][0], batch['view_position'][-1]
-        # tmp_batch_image_state = copy.deepcopy(batch['image_state'])
-        # batch['image_state'][-1], batch['image_state'][0] = batch['image_state'][0], batch['image_state'][-1]
+        print('-'*30)
+        print('generate img1')
+        batch['modes'] = modes_img1
+        import copy
+        tmp_batch_view = copy.deepcopy(batch['view_position'])
+        batch['view_position'][-1], batch['view_position'][0] = batch['view_position'][0], batch['view_position'][-1]
+        tmp_batch_image_state = copy.deepcopy(batch['image_state'])
+        batch['image_state'][-1], batch['image_state'][0] = batch['image_state'][0], batch['image_state'][-1]
 
-        # gen_images1 = self.transformerLM_unified.generate_image(
-        #     batch,
-        #     filter_logits_fn='top_p',
-        #     filter_thres=0.9,
-        #     temperature=0.7,
-        #     causal=self.causal
-        # )
-        # batch['view_position'] = copy.deepcopy(tmp_batch_view)
-        # batch['image_state']   = copy.deepcopy(tmp_batch_image_state)
+        gen_images1 = self.transformerLM_unified.generate_image(
+            batch,
+            filter_logits_fn='top_p',
+            filter_thres=0.9,
+            temperature=0.7,
+            causal=self.causal
+        )
+        batch['view_position'] = copy.deepcopy(tmp_batch_view)
+        batch['image_state']   = copy.deepcopy(tmp_batch_image_state)
 
 
-        # if 'img2' in batch.keys():
-        #     # generate img2
-        #     batch['modes'] = modes_img2
-        #     import copy
-        #     tmp_batch_view = copy.deepcopy(batch['view_position'])
-        #     batch['view_position'][-1], batch['view_position'][1] = batch['view_position'][1], batch['view_position'][-1]
-        #     tmp_batch_image_state = copy.deepcopy(batch['image_state'])
-        #     batch['image_state'][-1], batch['image_state'][1] = batch['image_state'][1], batch['image_state'][-1]
+        if 'img2' in batch.keys():
+            # generate img2
+            batch['modes'] = modes_img2
+            import copy
+            tmp_batch_view = copy.deepcopy(batch['view_position'])
+            batch['view_position'][-1], batch['view_position'][1] = batch['view_position'][1], batch['view_position'][-1]
+            tmp_batch_image_state = copy.deepcopy(batch['image_state'])
+            batch['image_state'][-1], batch['image_state'][1] = batch['image_state'][1], batch['image_state'][-1]
 
-        #     gen_images2 = self.transformerLM_unified.generate_image(
-        #         batch,
-        #         filter_logits_fn='top_p',
-        #         filter_thres=0.9,
-        #         temperature=0.7,
-        #         causal=self.causal
-        #     )
-            # batch['view_position'] = copy.deepcopy(tmp_batch_view)
-            # batch['image_state']   = copy.deepcopy(tmp_batch_image_state)
+            gen_images2 = self.transformerLM_unified.generate_image(
+                batch,
+                filter_logits_fn='top_p',
+                filter_thres=0.9,
+                temperature=0.7,
+                causal=self.causal
+            )
+            batch['view_position'] = copy.deepcopy(tmp_batch_view)
+            batch['image_state']   = copy.deepcopy(tmp_batch_image_state)
 
         if 'img3' in batch.keys():
             raise ValueError("HAHAHAHAHAHA")
@@ -520,36 +517,27 @@ class TransformerLightning_unified(pl.LightningModule):
 
         output = {
             'subject_ids':subject_ids,
-            # 'GT_text': txt,
-            # 'gen_text': gen_texts,
+            'GT_text': txt,
+            'gen_text': gen_texts,
             'GT_image1': img1,
-            # 'gen_image1': gen_images1,
+            'gen_image1': gen_images1,
             'img_paths': img_paths,
-            # 'modes_txt': modes_txt,
-            # 'modes_img1': modes_img1,
+            'modes_txt': modes_txt,
+            'modes_img1': modes_img1,
             'view': view,
             'img_state': img_state,
-            'cls_logits':self.sigmoid(cls_logit)
         }
 
-        # if 'img2' in batch.keys():
-        #     output['GT_image2'] = batch['img2']
-        #     output['gen_image2'] = gen_images2
-        #     output['modes_img2'] = modes_img2
+        if 'img2' in batch.keys():
+            output['GT_image2'] = batch['img2']
+            output['gen_image2'] = gen_images2
+            output['modes_img2'] = modes_img2
 
-        # if 'img3' in batch.keys():
-        #     output['GT_image3'] = batch['img3']
-        #     output['gen_image3'] = gen_images3
-        #     output['modes_img3'] = modes_img3
-        # After generating gen_texts
-        # print(f'gen_texts on GPU {self.device}:', gen_texts)
+        if 'img3' in batch.keys():
+            output['GT_image3'] = batch['img3']
+            output['gen_image3'] = gen_images3
+            output['modes_img3'] = modes_img3
 
-        # # After generating gen_images1
-        # print(f'gen_images1 on GPU {self.device}:', gen_images1)
-        # print(out)
-        # gathered_outputs = self.all_gather(output)
-        # print('gathered outputsssssss test_epoch_step',len(gathered_outputs))
-        print(len(output))
         return output
 
     # def test_step(self, batch, batch_idx):
@@ -707,7 +695,6 @@ class TransformerLightning_unified(pl.LightningModule):
         # tokenizer = ByteLevelBPETokenizer('BBPE_tokenizer/vocab.json', 'BBPE_tokenizer/merges.txt')
         tokenizer = AutoTokenizer.from_pretrained(url, trust_remote_code=True, cache_dir = cache_direc)
         tokenizer.add_special_tokens({"additional_special_tokens":["[PAD]", "[CLS]", "[SEP]", "[MASK]"]})
-
         print('test_epoch_end start',len(test_step_outputs))
         torch.save(test_step_outputs, os.path.join(self.save_dir, f"{self.device}_test_output_{self.ckpt_path.split('/')[-1].split('-')[0]}_{str(self.max_img_num)}_of_{str(self.target_count)}_{self.test_meta_file_name}.pt"))
         
